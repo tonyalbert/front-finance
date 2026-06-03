@@ -4,13 +4,11 @@ import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Wallet } from "lucide-react"
+import { ArrowRight, Wallet } from "lucide-react"
 
 import { useAuth } from "@/hooks/use-auth"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
+import { AuthBackground } from "@/components/ui/background-paper-shaders"
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -40,96 +38,136 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen">
-      {/* Painel esquerdo decorativo */}
-      <div className="relative hidden w-1/2 lg:flex">
-        <div className="absolute inset-0 bg-gradient-to-br from-teal-500 via-emerald-500 to-emerald-600" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(255,255,255,0.15),transparent_60%)]" />
-        <div className="relative z-10 flex flex-col justify-between p-12 text-white">
-          <Link href="/" className="flex items-center gap-2">
-            <Wallet className="size-7" />
-            <span className="text-xl font-bold">Pit Finance</span>
-          </Link>
-          <div>
-            <h2 className="text-3xl font-bold leading-tight">
-              Organize seu dinheiro<br />de forma inteligente.
-            </h2>
-            <p className="mt-4 max-w-md text-emerald-100/80">
-              Crie sua conta em segundos e comece a ter uma visão clara de todas as suas finanças pessoais.
+    <AuthBackground>
+      <div className="flex min-h-screen flex-col items-center justify-center px-4 py-16">
+
+        {/* Logo */}
+        <Link href="/" className="mb-10 flex items-center gap-2 text-white/80 hover:text-white transition-colors">
+          <Wallet className="size-6 text-red-400" />
+          <span className="text-lg font-bold tracking-tight">Pit Finance</span>
+        </Link>
+
+        {/* Glass card */}
+        <div className="relative w-full max-w-sm">
+          {/* Glass layer */}
+          <div className="absolute inset-0 rounded-2xl border border-white/10 bg-white/6 backdrop-blur-xl
+            shadow-[inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(0,0,0,0.2),0_24px_64px_rgba(0,0,0,0.5)]" />
+
+          <div className="relative z-10 p-8">
+            {/* Header */}
+            <div className="mb-8 text-center">
+              <h1 className="text-2xl font-bold tracking-tight text-white">
+                Crie sua conta
+              </h1>
+              <p className="mt-2 text-sm text-white/45">
+                Comece a organizar suas finanças agora mesmo. É grátis.
+              </p>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label htmlFor="email" className="block text-sm font-medium text-white/70">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="voce@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-white/12 bg-white/6 px-4 py-2.5 text-sm text-white
+                    placeholder:text-white/25 backdrop-blur-sm outline-none
+                    focus:border-white/25 focus:bg-white/10 focus:ring-2 focus:ring-white/8
+                    transition-all duration-200"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="password" className="block text-sm font-medium text-white/70">
+                  Senha
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="Crie uma senha"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-white/12 bg-white/6 px-4 py-2.5 text-sm text-white
+                    placeholder:text-white/25 backdrop-blur-sm outline-none
+                    focus:border-white/25 focus:bg-white/10 focus:ring-2 focus:ring-white/8
+                    transition-all duration-200"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-white/70">
+                  Confirmar senha
+                </label>
+                <input
+                  id="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder="Repita a senha"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  className="w-full rounded-xl border border-white/12 bg-white/6 px-4 py-2.5 text-sm text-white
+                    placeholder:text-white/25 backdrop-blur-sm outline-none
+                    focus:border-white/25 focus:bg-white/10 focus:ring-2 focus:ring-white/8
+                    transition-all duration-200"
+                />
+              </div>
+
+              {/* Trust badges */}
+              <div className="flex items-center justify-center gap-3 pt-1">
+                {["Grátis", "Seguro", "Sem cartão"].map((tag) => (
+                  <span key={tag} className="rounded-full border border-white/8 bg-white/4 px-2.5 py-0.5 text-xs text-white/35">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+
+              {/* CTA */}
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-red-500 px-6 py-2.5 text-sm font-semibold text-white
+                  shadow-lg shadow-red-500/25 hover:bg-red-400 hover:shadow-red-400/30
+                  disabled:opacity-60 disabled:cursor-not-allowed
+                  transition-all duration-200"
+              >
+                {isLoading ? <Spinner className="size-4" /> : null}
+                Criar conta grátis
+                {!isLoading && <ArrowRight className="size-4" />}
+              </button>
+            </form>
+
+            {/* Divider */}
+            <div className="my-6 flex items-center gap-3">
+              <div className="h-px flex-1 bg-white/8" />
+              <span className="text-xs text-white/25">ou</span>
+              <div className="h-px flex-1 bg-white/8" />
+            </div>
+
+            <p className="text-center text-sm text-white/40">
+              Já tem conta?{" "}
+              <Link
+                href="/login"
+                className="font-medium text-red-400 hover:text-red-300 underline-offset-4 hover:underline transition-colors"
+              >
+                Fazer login
+              </Link>
             </p>
           </div>
-          <p className="text-sm text-emerald-100/50">&copy; {new Date().getFullYear()} Pit Finance</p>
         </div>
+
+        <p className="mt-10 text-xs text-white/20">&copy; {new Date().getFullYear()} Pit Finance</p>
       </div>
-
-      {/* Painel direito - formulário */}
-      <div className="flex w-full flex-col items-center justify-center px-6 lg:w-1/2">
-        <div className="w-full max-w-sm">
-          <div className="mb-8 lg:hidden">
-            <Link href="/" className="flex items-center gap-2">
-              <Wallet className="size-6 text-emerald-500" />
-              <span className="text-lg font-bold">Pit Finance</span>
-            </Link>
-          </div>
-
-          <div className="mb-8">
-            <h1 className="text-2xl font-bold tracking-tight">Crie sua conta</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Comece a organizar suas finanças agora mesmo.
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder="voce@email.com"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="new-password"
-                placeholder="Crie uma senha"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirmar senha</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                autoComplete="new-password"
-                placeholder="Repita a senha"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                required
-              />
-            </div>
-            <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" type="submit" disabled={isLoading}>
-              {isLoading ? <Spinner className="mr-2 size-4" /> : null}
-              Criar conta
-            </Button>
-          </form>
-
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            Já tem conta?{" "}
-            <Link className="font-medium text-emerald-600 hover:text-emerald-500 hover:underline underline-offset-4" href="/login">
-              Fazer login
-            </Link>
-          </p>
-        </div>
-      </div>
-    </div>
+    </AuthBackground>
   )
 }
