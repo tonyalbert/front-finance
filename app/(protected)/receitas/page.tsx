@@ -16,6 +16,7 @@ import {
   getQuarter,
 } from "@/lib/finance-utils"
 import { PageShell } from "@/components/dashboard/page-shell"
+import { DatePickerCell } from "@/components/dashboard/date-picker-cell"
 import { SortableIncomeHeader } from "@/components/dashboard/sortable-header"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -184,7 +185,7 @@ export default function ReceitasPage() {
       const created = await apiFetch<ApiIncome>("/incomes", {
         method: "POST",
         token,
-        body: JSON.stringify({ source: "Nova receita", amount: 0, date, tagId: incomeTags[0]?.id ?? null }),
+        body: JSON.stringify({ source: "Nova receita", amount: 0.01, date, tagId: incomeTags[0]?.id ?? null }),
       })
       setIncomes((prev) => [created, ...prev])
       startIncomeEdit(created.id, "source")
@@ -360,14 +361,14 @@ export default function ReceitasPage() {
                                 </Select>
                               ) : <span className="cursor-text">{tagLabel}</span>}
                             </TableCell>
-                            <TableCell onClick={() => startIncomeEdit(row.id, "date")}>
-                              {isEditing("date") ? (
-                                <Input autoFocus type="date" value={dateValue}
-                                  onChange={(e) => setDraftsIncome((p) => ({ ...p, [row.id]: { ...p[row.id], date: e.target.value } }))}
-                                  onBlur={(e) => saveIncomeField(row.id, "date", e.target.value)}
-                                  onKeyDown={(e) => { if (e.key === "Enter") saveIncomeField(row.id, "date", (e.target as HTMLInputElement).value); if (e.key === "Escape") setEditingIncomeCell(null) }}
-                                />
-                              ) : <span className="cursor-text">{formatDateDisplay(row.date)}</span>}
+                            <TableCell>
+                              <DatePickerCell
+                                value={row.date}
+                                isEditing={isEditing("date")}
+                                onStartEdit={() => startIncomeEdit(row.id, "date")}
+                                onSave={(iso) => saveIncomeField(row.id, "date", iso)}
+                                onCancel={() => setEditingIncomeCell(null)}
+                              />
                             </TableCell>
                           </TableRow>
                         )

@@ -576,7 +576,7 @@ export default function DashboardPage() {
 
       {/* Credores */}
       <div className="rounded-2xl border border-border bg-card p-5 backdrop-blur-sm">
-        <CreditorsSection availableYears={availableYears} />
+        <CreditorsSection availableYears={availableYears} expenses={expenses} />
       </div>
 
       {/* Month cards */}

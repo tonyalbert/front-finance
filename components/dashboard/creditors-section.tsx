@@ -6,7 +6,7 @@ import { AlertCircle, CheckCircle2, Mail, Phone, Plus, Trash2, XCircle } from "l
 import { useAuth } from "@/hooks/use-auth"
 import { apiFetch } from "@/lib/api"
 import type { ApiCreditor, ApiCreditorDetails, ApiExpense } from "@/lib/finance-types"
-import { MONTHS, formatBRL } from "@/lib/finance-utils"
+import { MONTHS, formatBRL, toNumber } from "@/lib/finance-utils"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -35,9 +35,11 @@ import {
 export function CreditorsSection({
   availableYears,
   refreshKey,
+  expenses: allExpenses,
 }: {
   availableYears?: number[]
   refreshKey?: number
+  expenses?: ApiExpense[]
 }) {
   const { token } = useAuth()
   const now = React.useMemo(() => new Date(), [])
@@ -57,6 +59,19 @@ export function CreditorsSection({
   const [isLoadingDetails, setIsLoadingDetails] = React.useState(false)
 
   const years = availableYears ?? [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1]
+
+  const noCreditorStats = React.useMemo(() => {
+    if (!allExpenses) return null
+    const filtered = allExpenses.filter((e) => {
+      if (e.creditorId) return false
+      const d = new Date(e.date)
+      return d.getMonth() + 1 === Number(month) && d.getFullYear() === Number(year)
+    })
+    if (filtered.length === 0) return null
+    const totalAmount = filtered.reduce((s, e) => s + toNumber(e.amount), 0)
+    const unpaidAmount = filtered.filter((e) => !e.isPaid).reduce((s, e) => s + toNumber(e.amount), 0)
+    return { count: filtered.length, totalAmount, unpaidAmount, isPaidOff: unpaidAmount === 0 }
+  }, [allExpenses, month, year])
 
   const fetchCreditors = React.useCallback(async (m: string, y: string) => {
     if (!token) return
@@ -184,6 +199,11 @@ export function CreditorsSection({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="truncate text-sm font-medium text-foreground/90">{c.name}</span>
+                      {c.expenseCount > 0 && (
+                        <span className="shrink-0 rounded-full border border-border bg-accent/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                          {c.expenseCount} despesa{c.expenseCount !== 1 ? "s" : ""}
+                        </span>
+                      )}
                       {c.phone && <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:flex"><Phone className="size-3" />{c.phone}</span>}
                       {c.email && <span className="hidden items-center gap-1 text-xs text-muted-foreground md:flex"><Mail className="size-3" />{c.email}</span>}
                     </div>
@@ -221,6 +241,40 @@ export function CreditorsSection({
                 </div>
               )
             })}
+            {noCreditorStats && (
+              <div className="flex items-center gap-4 px-4 py-3 border-t border-border/50">
+                <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground text-xs font-bold">
+                  —
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-sm font-medium text-foreground/70">Sem credor</span>
+                    <span className="rounded-full border border-border bg-accent/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                      {noCreditorStats.count} despesa{noCreditorStats.count !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-border">
+                      <div
+                        className={`h-full rounded-full transition-all ${noCreditorStats.isPaidOff ? "bg-emerald-400/70" : "bg-muted-foreground/40"}`}
+                        style={{ width: noCreditorStats.totalAmount > 0 ? `${Math.round(((noCreditorStats.totalAmount - noCreditorStats.unpaidAmount) / noCreditorStats.totalAmount) * 100)}%` : "0%" }}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className={`text-sm font-semibold tabular-nums ${noCreditorStats.isPaidOff ? "text-emerald-400" : "text-muted-foreground"}`}>
+                    {noCreditorStats.isPaidOff ? "Quitado" : formatBRL(noCreditorStats.unpaidAmount)}
+                  </p>
+                  <p className="text-xs tabular-nums text-muted-foreground">de {formatBRL(noCreditorStats.totalAmount)}</p>
+                </div>
+                <div className="flex shrink-0 items-center">
+                  {noCreditorStats.isPaidOff
+                    ? <CheckCircle2 className="size-4 text-emerald-400" />
+                    : <AlertCircle className="size-4 text-muted-foreground/60" />}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -46,7 +46,7 @@ export function formatDateInput(value: string) {
 export function formatDateDisplay(value: string) {
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return value
-  return d.toLocaleDateString("pt-BR")
+  return d.toLocaleDateString("pt-BR", { timeZone: "UTC" })
 }
 
 export function toNumber(value: unknown): number {

@@ -28,6 +28,7 @@ import {
   getQuarter,
 } from "@/lib/finance-utils"
 import { PageShell } from "@/components/dashboard/page-shell"
+import { DatePickerCell } from "@/components/dashboard/date-picker-cell"
 import { SortableHeader } from "@/components/dashboard/sortable-header"
 import {
   AlertDialog,
@@ -247,7 +248,7 @@ export default function DespesasPage() {
       const created = await apiFetch<ApiExpense>("/expenses", {
         method: "POST",
         token,
-        body: JSON.stringify({ item: "Nova despesa", amount: 0, date, tagId: expenseTags[0]?.id ?? null, isPaid: false }),
+        body: JSON.stringify({ item: "Nova despesa", amount: 0.01, date, tagId: expenseTags[0]?.id ?? null, isPaid: false }),
       })
       setExpenses((prev) => [created, ...prev])
       setCreditorsRefreshKey((k) => k + 1)
@@ -385,7 +386,7 @@ export default function DespesasPage() {
 
       {/* Credores */}
       <div className="rounded-2xl border border-border bg-card p-5 backdrop-blur-sm">
-        <CreditorsSection availableYears={availableYears} refreshKey={creditorsRefreshKey} />
+        <CreditorsSection availableYears={availableYears} refreshKey={creditorsRefreshKey} expenses={expenses} />
       </div>
 
       {/* Total do período */}
@@ -577,14 +578,14 @@ export default function DespesasPage() {
                                 </Select>
                               ) : <span className="cursor-text">{row.creditorId ? allCreditors.find((c) => c.id === row.creditorId)?.name : "-"}</span>}
                             </TableCell>
-                            <TableCell onClick={() => startEdit(row.id, "date")}>
-                              {isEditing("date") ? (
-                                <Input autoFocus type="date" value={dateValue}
-                                  onChange={(e) => setDrafts((p) => ({ ...p, [row.id]: { ...p[row.id], date: e.target.value } }))}
-                                  onBlur={(e) => saveField(row.id, "date", e.target.value)}
-                                  onKeyDown={(e) => { if (e.key === "Enter") saveField(row.id, "date", (e.target as HTMLInputElement).value); if (e.key === "Escape") setEditingCell(null) }}
-                                />
-                              ) : <span className="cursor-text">{formatDateDisplay(row.date)}</span>}
+                            <TableCell>
+                              <DatePickerCell
+                                value={row.date}
+                                isEditing={isEditing("date")}
+                                onStartEdit={() => startEdit(row.id, "date")}
+                                onSave={(iso) => saveField(row.id, "date", iso)}
+                                onCancel={() => setEditingCell(null)}
+                              />
                             </TableCell>
                             <TableCell className="pr-6 text-right">
                               <button type="button" onClick={() => togglePaid(row.id, !row.isPaid)} className="inline-flex items-center gap-2 text-sm font-medium">
