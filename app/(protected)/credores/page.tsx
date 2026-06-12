@@ -119,8 +119,12 @@ export default function CreditoresPage() {
     setIsLoadingCreditorDetails(true)
     setIsCreditorDetailsOpen(true)
     try {
-      const details = await apiFetch<ApiCreditorDetails>(`/creditors/${creditorId}`, { token })
-      setCreditorDetails(details)
+      const details = await apiFetch<ApiCreditorDetails>(`/creditors/${creditorId}?month=${creditorFilterMonth}&year=${creditorFilterYear}`, { token })
+      const filtered = details.expenses.filter((e) => {
+        const date = new Date(e.date)
+        return date.getMonth() + 1 === Number(creditorFilterMonth) && date.getFullYear() === Number(creditorFilterYear)
+      })
+      setCreditorDetails({ ...details, expenses: filtered })
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Erro ao carregar detalhes.")
       setIsCreditorDetailsOpen(false)

@@ -8,6 +8,7 @@ import {
   Building2,
   LayoutDashboard,
   LogOut,
+  RefreshCw,
   Tag,
   TrendingDown,
   TrendingUp,
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/receitas", icon: TrendingUp, label: "Receitas" },
   { href: "/despesas", icon: TrendingDown, label: "Despesas" },
+  { href: "/fixed-expenses", icon: RefreshCw, label: "Despesas Fixas" },
   { href: "/ia", icon: Brain, label: "Análise com IA" },
 ]
 

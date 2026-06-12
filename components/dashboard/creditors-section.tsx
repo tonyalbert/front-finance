@@ -114,8 +114,12 @@ export function CreditorsSection({
     setIsLoadingDetails(true)
     setIsDetailsOpen(true)
     try {
-      const d = await apiFetch<ApiCreditorDetails>(`/creditors/${id}`, { token })
-      setDetails(d)
+      const d = await apiFetch<ApiCreditorDetails>(`/creditors/${id}?month=${month}&year=${year}`, { token })
+      const filtered = d.expenses.filter((e) => {
+        const date = new Date(e.date)
+        return date.getMonth() + 1 === Number(month) && date.getFullYear() === Number(year)
+      })
+      setDetails({ ...d, expenses: filtered })
     } catch (e) { toast.error(e instanceof Error ? e.message : "Erro."); setIsDetailsOpen(false) }
     finally { setIsLoadingDetails(false) }
   }

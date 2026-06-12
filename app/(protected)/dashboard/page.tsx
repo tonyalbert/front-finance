@@ -19,6 +19,7 @@ import {
 import { MonthCard } from "@/components/dashboard/month-card"
 import { CompactLegend } from "@/components/dashboard/compact-legend"
 import { CreditorsSection } from "@/components/dashboard/creditors-section"
+import { FixedExpensesSummary } from "@/components/dashboard/fixed-expenses-summary"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -190,6 +191,14 @@ export default function DashboardPage() {
       .catch((err) => { if (!cancelled) toast.error(err instanceof Error ? err.message : "Erro ao carregar dados.") })
       .finally(() => { if (!cancelled) setIsLoadingData(false) })
     return () => { cancelled = true }
+  }, [token])
+
+  const refreshExpenses = React.useCallback(async () => {
+    if (!token) return
+    try {
+      const res = await apiFetch<ApiExpense[]>("/expenses", { token })
+      setExpenses(res)
+    } catch { /* silent */ }
   }, [token])
 
   const selectedYearNumber = Number(selectedYear)
@@ -573,6 +582,13 @@ export default function DashboardPage() {
 
       {/* Compras Parceladas */}
       <InstallmentsSection expenses={expenses} tagById={tagById} creditorById={creditorById} />
+
+      {/* Despesas Fixas */}
+      <FixedExpensesSummary
+        month={String(selectedMonthIndex + 1)}
+        year={selectedYear}
+        onGenerated={refreshExpenses}
+      />
 
       {/* Credores */}
       <div className="rounded-2xl border border-border bg-card p-5 backdrop-blur-sm">

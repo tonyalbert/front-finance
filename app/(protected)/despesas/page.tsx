@@ -15,6 +15,7 @@ import {
   UserCircle,
 } from "lucide-react"
 import { CreditorsSection } from "@/components/dashboard/creditors-section"
+import { FixedExpensesSummary } from "@/components/dashboard/fixed-expenses-summary"
 import { useAuth } from "@/hooks/use-auth"
 import { useSelectedYear } from "@/hooks/use-selected-year"
 import { apiFetch } from "@/lib/api"
@@ -121,6 +122,19 @@ export default function DespesasPage() {
       .catch((err) => { if (!cancelled) toast.error(err instanceof Error ? err.message : "Erro ao carregar dados.") })
       .finally(() => { if (!cancelled) setIsLoadingData(false) })
     return () => { cancelled = true }
+  }, [token])
+
+  const refreshExpenses = React.useCallback(async () => {
+    if (!token) return
+    try {
+      const [expensesRes, creditorsRes] = await Promise.all([
+        apiFetch<ApiExpense[]>("/expenses", { token }),
+        apiFetch<ApiCreditor[]>("/creditors/summary", { token }),
+      ])
+      setExpenses(expensesRes)
+      setAllCreditors(creditorsRes)
+      setCreditorsRefreshKey((k) => k + 1)
+    } catch { /* silent */ }
   }, [token])
 
   const tagById = React.useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags])
@@ -383,6 +397,13 @@ export default function DespesasPage() {
       }
     >
       {isLoadingData && <p className="text-sm text-muted-foreground">Carregando...</p>}
+
+      {/* Despesas Fixas */}
+      <FixedExpensesSummary
+        month={String(currentMonthIndex + 1)}
+        year={selectedYear}
+        onGenerated={refreshExpenses}
+      />
 
       {/* Credores */}
       <div className="rounded-2xl border border-border bg-card p-5 backdrop-blur-sm">

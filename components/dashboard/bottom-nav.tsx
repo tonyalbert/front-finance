@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Brain, LayoutDashboard, Tag, TrendingDown, TrendingUp } from "lucide-react"
+import { Brain, LayoutDashboard, RefreshCw, Tag, TrendingDown, TrendingUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { TagsSheet } from "./tags-sheet"
 
@@ -11,6 +11,7 @@ const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Inicio" },
   { href: "/receitas", icon: TrendingUp, label: "Receitas" },
   { href: "/despesas", icon: TrendingDown, label: "Despesas" },
+  { href: "/fixed-expenses", icon: RefreshCw, label: "Fixas" },
   { href: "/ia", icon: Brain, label: "IA" },
 ]
 
