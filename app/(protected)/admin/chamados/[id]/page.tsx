@@ -4,7 +4,7 @@ import * as React from "react"
 import { useParams, useRouter } from "next/navigation"
 import { redirect } from "next/navigation"
 import { toast } from "sonner"
-import { ArrowLeft, Send } from "lucide-react"
+import { ArrowLeft, Send, ShieldCheck, User } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import {
   getAdminTicket,
@@ -14,7 +14,9 @@ import {
   STATUS_LABEL,
 } from "@/lib/tickets-api"
 import type { Ticket, TicketStatus } from "@/lib/tickets-api"
+import { PageShell } from "@/components/dashboard/page-shell"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import {
   Select,
   SelectContent,
@@ -44,13 +46,9 @@ export default function AdminChamadoDetailPage() {
   const [isSending, setIsSending] = React.useState(false)
   const [isUpdatingStatus, setIsUpdatingStatus] = React.useState(false)
 
-  const messagesEndRef = React.useRef<HTMLDivElement>(null)
-
   React.useEffect(() => {
     if (!isReady) return
-    if (!user?.isAdmin) {
-      redirect("/dashboard")
-    }
+    if (!user?.isAdmin) redirect("/dashboard")
   }, [isReady, user])
 
   React.useEffect(() => {
@@ -63,10 +61,6 @@ export default function AdminChamadoDetailPage() {
       .finally(() => { if (!cancelled) setIsLoading(false) })
     return () => { cancelled = true }
   }, [token, id, user])
-
-  React.useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [ticket?.messages])
 
   async function handleSend() {
     if (!token || !ticket || !content.trim()) return
@@ -97,13 +91,6 @@ export default function AdminChamadoDetailPage() {
     }
   }
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
-  }
-
   if (!isReady || !user?.isAdmin) return null
 
   if (isLoading) {
@@ -117,45 +104,47 @@ export default function AdminChamadoDetailPage() {
   if (!ticket) return null
 
   return (
-    <div className="flex h-screen flex-col">
-      {/* Header */}
-      <div className="shrink-0 border-b border-border bg-background/80 px-4 py-4 backdrop-blur-sm sm:px-6">
-        <div className="flex items-start gap-3">
-          <button
-            onClick={() => router.push("/admin/chamados")}
-            className="mt-0.5 shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          >
-            <ArrowLeft className="size-4" />
-          </button>
-          <div className="min-w-0 flex-1">
+    <PageShell
+      title={ticket.title}
+      headerActions={
+        <button
+          onClick={() => router.push("/admin/chamados")}
+          className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <ArrowLeft className="size-4" />
+          Voltar
+        </button>
+      }
+    >
+      {/* Ticket meta + status control */}
+      <Card className="border-border bg-card">
+        <CardContent className="px-5 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-base font-semibold text-foreground sm:text-lg">{ticket.title}</h1>
-              <span className={cn("rounded-full border px-1.5 py-0.5 text-[10px]", statusStyle(ticket.status))}>
+              <span className={cn("rounded-full border px-2 py-0.5 text-xs font-medium", statusStyle(ticket.status))}>
                 {STATUS_LABEL[ticket.status]}
               </span>
-              <span className="rounded-full border border-border bg-accent/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              <span className="rounded-full border border-border bg-accent/40 px-2 py-0.5 text-xs text-muted-foreground">
                 {CATEGORY_LABEL[ticket.category]}
               </span>
+              <span className="text-xs text-muted-foreground/50">
+                {ticket.user.email}
+              </span>
+              <span className="text-xs text-muted-foreground/40">
+                · Aberto em {new Date(ticket.createdAt).toLocaleDateString("pt-BR", {
+                  day: "2-digit",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </span>
             </div>
-            <p className="mt-0.5 text-xs text-muted-foreground/50">
-              {ticket.user.email} · Aberto em {new Date(ticket.createdAt).toLocaleDateString("pt-BR", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              })}
-            </p>
-            {ticket.description && (
-              <p className="mt-1.5 text-sm text-muted-foreground/70">{ticket.description}</p>
-            )}
-          </div>
-          <div className="shrink-0">
             <Select
               value={ticket.status}
               onValueChange={(v) => handleStatusChange(v as TicketStatus)}
               disabled={isUpdatingStatus}
             >
-              <SelectTrigger className="h-8 w-[140px] text-xs">
-                <SelectValue />
+              <SelectTrigger className="h-8 w-[150px] text-xs">
+                {isUpdatingStatus ? <Spinner className="size-3.5" /> : <SelectValue />}
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="OPEN">Aberto</SelectItem>
@@ -164,73 +153,81 @@ export default function AdminChamadoDetailPage() {
               </SelectContent>
             </Select>
           </div>
-        </div>
-      </div>
+          {ticket.description && (
+            <p className="mt-3 text-sm text-muted-foreground/80 leading-relaxed">{ticket.description}</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-        {ticket.messages.length === 0 && (
-          <p className="text-center text-sm text-muted-foreground/50">
-            Nenhuma mensagem ainda.
-          </p>
-        )}
+      {ticket.messages.length > 0 && (
         <div className="space-y-3">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground/50">
+            Respostas ({ticket.messages.length})
+          </p>
           {ticket.messages.map((msg) => (
-            <div
+            <Card
               key={msg.id}
-              className={cn("flex", msg.isAdmin ? "justify-end" : "justify-start")}
+              className={cn(
+                "border",
+                msg.isAdmin
+                  ? "border-primary/20 bg-primary/5"
+                  : "border-border bg-card",
+              )}
             >
-              <div
-                className={cn(
-                  "max-w-[75%] rounded-2xl px-4 py-2.5",
-                  msg.isAdmin
-                    ? "rounded-tr-sm bg-primary text-primary-foreground"
-                    : "rounded-tl-sm bg-muted text-foreground",
-                )}
-              >
-                {!msg.isAdmin && (
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    {ticket.user.email}
-                  </p>
-                )}
-                <p className="text-sm leading-relaxed">{msg.content}</p>
-                <p className={cn(
-                  "mt-1 text-[10px]",
-                  msg.isAdmin ? "text-primary-foreground/60" : "text-muted-foreground/50",
-                )}>
-                  {new Date(msg.createdAt).toLocaleTimeString("pt-BR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+              <CardContent className="px-5 py-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className={cn(
+                    "flex size-6 shrink-0 items-center justify-center rounded-full",
+                    msg.isAdmin ? "bg-primary/20" : "bg-accent",
+                  )}>
+                    {msg.isAdmin
+                      ? <ShieldCheck className="size-3.5 text-primary" />
+                      : <User className="size-3.5 text-muted-foreground" />}
+                  </div>
+                  <span className="text-xs font-semibold text-foreground/80">
+                    {msg.isAdmin ? "Suporte" : msg.user.email}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground/40">
+                    {new Date(msg.createdAt).toLocaleString("pt-BR", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
+                <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+                  {msg.content}
                 </p>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           ))}
-          <div ref={messagesEndRef} />
         </div>
-      </div>
+      )}
 
-      {/* Input */}
-      <div className="shrink-0 border-t border-border bg-background/80 px-4 py-3 backdrop-blur-sm sm:px-6">
-        <div className="flex items-end gap-2">
+      {/* Reply */}
+      <Card className="border-border bg-card">
+        <CardContent className="px-5 py-4">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground/50">
+            Responder como suporte
+          </p>
           <Textarea
-            placeholder="Responder como suporte... (Enter para enviar)"
-            className="max-h-32 min-h-[44px] flex-1 resize-none"
+            placeholder="Digite a resposta para o usuário..."
+            className="mb-3 min-h-[100px] resize-none"
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            onKeyDown={handleKeyDown}
             disabled={isSending}
           />
-          <Button
-            size="icon"
-            onClick={handleSend}
-            disabled={isSending || !content.trim()}
-            className="shrink-0"
-          >
-            {isSending ? <Spinner className="size-4" /> : <Send className="size-4" />}
-          </Button>
-        </div>
-      </div>
-    </div>
+          <div className="flex justify-end">
+            <Button onClick={handleSend} disabled={isSending || !content.trim()} size="sm">
+              {isSending ? <Spinner className="mr-2 size-4" /> : <Send className="mr-2 size-4" />}
+              {isSending ? "Enviando..." : "Responder"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </PageShell>
   )
 }

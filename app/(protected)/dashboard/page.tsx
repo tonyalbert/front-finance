@@ -15,6 +15,8 @@ import {
   buildTopCategories,
   buildDonutData,
   formatBRL,
+  INCOME_PALETTE,
+  EXPENSE_PALETTE,
 } from "@/lib/finance-utils"
 import { MonthCard } from "@/components/dashboard/month-card"
 import { CompactLegend } from "@/components/dashboard/compact-legend"
@@ -37,6 +39,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  LabelList,
   Pie,
   PieChart,
   XAxis,
@@ -45,6 +48,40 @@ import {
 
 function fmt(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 })
+}
+
+function fmtShort(v: unknown): string {
+  const n = Number(v)
+  if (!n) return ""
+  if (n >= 1_000_000) return `${(n / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}M`
+  if (n >= 1_000) return `${(n / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}k`
+  return n.toLocaleString("pt-BR", { maximumFractionDigits: 0 })
+}
+
+function PiePercentLabel({
+  cx, cy, midAngle, outerRadius, percent, fill,
+}: {
+  cx: number; cy: number; midAngle: number
+  innerRadius: number; outerRadius: number; percent: number; fill: string
+  [key: string]: unknown
+}) {
+  if (percent < 0.05) return null
+  const RADIAN = Math.PI / 180
+  const radius = outerRadius + 20
+  const x = cx + radius * Math.cos(-midAngle * RADIAN)
+  const y = cy + radius * Math.sin(-midAngle * RADIAN)
+  return (
+    <text
+      x={x}
+      y={y}
+      fill={fill}
+      textAnchor={x > cx ? "start" : "end"}
+      dominantBaseline="central"
+      style={{ fontSize: 10, fontWeight: 700 }}
+    >
+      {`${(percent * 100).toFixed(0)}%`}
+    </text>
+  )
 }
 
 function pctDelta(curr: number, prev: number): number | null {
@@ -272,7 +309,7 @@ export default function DashboardPage() {
       const k = (i.tagId ? tagById.get(i.tagId)?.name : undefined) || i.source || "Outros"
       totals.set(k, (totals.get(k) ?? 0) + toNumber(i.amount))
     })
-    const { data, config } = buildDonutData(buildTopCategories(Array.from(totals.entries()), 4))
+    const { data, config } = buildDonutData(buildTopCategories(Array.from(totals.entries()), 4), INCOME_PALETTE)
     return { incomesData: data, incomesConfig: config, totalIncome: data.reduce((s, d) => s + d.value, 0) }
   }, [incomes, tagById, selectedYearNumber, selectedMonthIndex])
 
@@ -284,7 +321,7 @@ export default function DashboardPage() {
       const k = (e.tagId ? tagById.get(e.tagId)?.name : undefined) || e.item || "Outros"
       totals.set(k, (totals.get(k) ?? 0) + toNumber(e.amount))
     })
-    const { data, config } = buildDonutData(buildTopCategories(Array.from(totals.entries()), 4))
+    const { data, config } = buildDonutData(buildTopCategories(Array.from(totals.entries()), 4), EXPENSE_PALETTE)
     return { expensesData: data, expensesConfig: config, totalExpense: data.reduce((s, d) => s + d.value, 0) }
   }, [expenses, tagById, selectedYearNumber, selectedMonthIndex])
 
@@ -432,8 +469,12 @@ export default function DashboardPage() {
                     />
                   }
                 />
-                <Area dataKey="receitas" type="monotone" stroke="var(--color-receitas)" fill="var(--color-receitas)" fillOpacity={0.15} strokeWidth={2} />
-                <Area dataKey="gastos" type="monotone" stroke="var(--color-gastos)" fill="var(--color-gastos)" fillOpacity={0.15} strokeWidth={2} />
+                <Area dataKey="receitas" type="monotone" stroke="var(--color-receitas)" fill="var(--color-receitas)" fillOpacity={0.15} strokeWidth={2} dot={{ r: 3, fill: "var(--color-receitas)" }}>
+                  <LabelList dataKey="receitas" position="top" offset={6} formatter={fmtShort} style={{ fontSize: 9, fill: "#34d399", fontWeight: 600 }} />
+                </Area>
+                <Area dataKey="gastos" type="monotone" stroke="var(--color-gastos)" fill="var(--color-gastos)" fillOpacity={0.15} strokeWidth={2} dot={{ r: 3, fill: "var(--color-gastos)" }}>
+                  <LabelList dataKey="gastos" position="bottom" offset={6} formatter={fmtShort} style={{ fontSize: 9, fill: "#f87171", fontWeight: 600 }} />
+                </Area>
               </AreaChart>
             </ChartContainer>
           </CardContent>
@@ -445,10 +486,10 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground">{monthLabel}</p>
           </CardHeader>
           <CardContent className="pt-0">
-            <ChartContainer config={incomesConfig} className="aspect-square h-[200px] w-full">
-              <PieChart>
+            <ChartContainer config={incomesConfig} className="aspect-square h-[230px] w-full [&_.recharts-surface]:overflow-visible">
+              <PieChart margin={{ top: 24, right: 28, bottom: 24, left: 28 }}>
                 <ChartTooltip cursor={false} content={<ChartTooltipContent nameKey="name" formatter={(v) => <span className="font-mono tabular-nums text-foreground">{fmt(Number(v))}</span>} />} />
-                <Pie data={incomesData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={80} stroke="transparent">
+                <Pie data={incomesData} dataKey="value" nameKey="name" innerRadius={48} outerRadius={70} stroke="transparent" label={PiePercentLabel} labelLine={false}>
                   <RechartsLabel content={({ viewBox }) => {
                     if (!viewBox || !("cx" in viewBox) || !("cy" in viewBox)) return null
                     const cx = viewBox.cx as number
@@ -473,10 +514,10 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground">{monthLabel}</p>
           </CardHeader>
           <CardContent className="pt-0">
-            <ChartContainer config={expensesConfig} className="aspect-square h-[200px] w-full">
-              <PieChart>
+            <ChartContainer config={expensesConfig} className="aspect-square h-[230px] w-full [&_.recharts-surface]:overflow-visible">
+              <PieChart margin={{ top: 24, right: 28, bottom: 24, left: 28 }}>
                 <ChartTooltip cursor={false} content={<ChartTooltipContent nameKey="name" formatter={(v) => <span className="font-mono tabular-nums text-foreground">{fmt(Number(v))}</span>} />} />
-                <Pie data={expensesData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={80} stroke="transparent">
+                <Pie data={expensesData} dataKey="value" nameKey="name" innerRadius={48} outerRadius={70} stroke="transparent" label={PiePercentLabel} labelLine={false}>
                   <RechartsLabel content={({ viewBox }) => {
                     if (!viewBox || !("cx" in viewBox) || !("cy" in viewBox)) return null
                     const cx = viewBox.cx as number

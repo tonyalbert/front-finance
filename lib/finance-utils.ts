@@ -23,9 +23,25 @@ export const CHART_PALETTE = [
   "var(--color-chart-5)",
 ] as const
 
+export const INCOME_PALETTE = [
+  "#34d399",
+  "#10b981",
+  "#6ee7b7",
+  "#059669",
+  "#a7f3d0",
+] as const
+
+export const EXPENSE_PALETTE = [
+  "#f87171",
+  "#fb923c",
+  "#c084fc",
+  "#fbbf24",
+  "#f472b6",
+] as const
+
 export const spendConfig = {
-  gastos: { label: "Despesas", color: "var(--color-chart-1)" },
-  receitas: { label: "Receitas", color: "var(--color-chart-2)" },
+  gastos: { label: "Despesas", color: "#f87171" },
+  receitas: { label: "Receitas", color: "#34d399" },
 } satisfies ChartConfig
 
 export function formatBRL(value: number) {
@@ -79,14 +95,17 @@ export function buildTopCategories(
   return top
 }
 
-export function buildDonutData(pairs: Array<[string, number]>): {
+export function buildDonutData(
+  pairs: Array<[string, number]>,
+  palette: readonly string[] = CHART_PALETTE,
+): {
   data: { name: string; value: number; fill: string }[]
   config: ChartConfig
 } {
   const data = pairs.map(([name, value], index) => ({
     name,
     value,
-    fill: CHART_PALETTE[index % CHART_PALETTE.length],
+    fill: palette[index % palette.length],
   }))
   const config: ChartConfig = Object.fromEntries(
     data.map((d) => [d.name, { label: d.name, color: d.fill }]),
