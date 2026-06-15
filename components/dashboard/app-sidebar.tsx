@@ -7,8 +7,10 @@ import {
   Brain,
   Building2,
   LayoutDashboard,
+  LifeBuoy,
   LogOut,
   RefreshCw,
+  ShieldCheck,
   Tag,
   TrendingDown,
   TrendingUp,
@@ -26,6 +28,7 @@ const navItems = [
   { href: "/despesas", icon: TrendingDown, label: "Despesas" },
   { href: "/fixed-expenses", icon: RefreshCw, label: "Despesas Fixas" },
   { href: "/ia", icon: Brain, label: "Análise com IA" },
+  { href: "/chamados", icon: LifeBuoy, label: "Suporte" },
 ]
 
 export function AppSidebar() {
@@ -67,6 +70,30 @@ export function AppSidebar() {
             )
           })}
         </nav>
+
+        {/* Admin nav */}
+        {user?.isAdmin && (
+          <div className="shrink-0 border-t border-sidebar-border px-2 py-2">
+            {(() => {
+              const isActive = pathname === "/admin/chamados" || pathname.startsWith("/admin/chamados/")
+              return (
+                <Link
+                  href="/admin/chamados"
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all",
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-sidebar-foreground/50 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
+                  )}
+                >
+                  <ShieldCheck className={cn("size-4 shrink-0", isActive && "text-primary")} />
+                  Admin Suporte
+                  {isActive && <span className="ml-auto size-1.5 rounded-full bg-primary" />}
+                </Link>
+              )
+            })()}
+          </div>
+        )}
 
         {/* Footer */}
         <div className="shrink-0 space-y-0.5 border-t border-sidebar-border px-2 py-3">

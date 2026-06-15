@@ -3,8 +3,9 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Brain, LayoutDashboard, RefreshCw, Tag, TrendingDown, TrendingUp } from "lucide-react"
+import { Brain, LayoutDashboard, LifeBuoy, RefreshCw, ShieldCheck, Tag, TrendingDown, TrendingUp } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/hooks/use-auth"
 import { TagsSheet } from "./tags-sheet"
 
 const navItems = [
@@ -13,10 +14,12 @@ const navItems = [
   { href: "/despesas", icon: TrendingDown, label: "Despesas" },
   { href: "/fixed-expenses", icon: RefreshCw, label: "Fixas" },
   { href: "/ia", icon: Brain, label: "IA" },
+  { href: "/chamados", icon: LifeBuoy, label: "Suporte" },
 ]
 
 export function BottomNav() {
   const pathname = usePathname()
+  const { user } = useAuth()
   const [tagsOpen, setTagsOpen] = useState(false)
 
   return (
@@ -40,6 +43,23 @@ export function BottomNav() {
                 </Link>
               )
             })}
+            {user?.isAdmin && (
+              <Link
+                href="/admin/chamados"
+                className={cn(
+                  "flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg px-1 py-2 transition-all",
+                  pathname === "/admin/chamados" || pathname.startsWith("/admin/chamados/")
+                    ? "text-foreground"
+                    : "text-muted-foreground",
+                )}
+              >
+                <ShieldCheck className={cn(
+                  "size-5 shrink-0",
+                  (pathname === "/admin/chamados" || pathname.startsWith("/admin/chamados/")) && "text-primary",
+                )} />
+                <span className="truncate text-[10px] font-medium">Admin</span>
+              </Link>
+            )}
             <button
               onClick={() => setTagsOpen(true)}
               className="flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg px-1 py-2 text-muted-foreground transition-all"
