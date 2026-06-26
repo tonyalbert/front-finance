@@ -36,17 +36,24 @@ export function CreditorsSection({
   availableYears,
   refreshKey,
   expenses: allExpenses,
+  month: monthProp,
+  year: yearProp,
 }: {
   availableYears?: number[]
   refreshKey?: number
   expenses?: ApiExpense[]
+  month?: string
+  year?: string
 }) {
   const { token } = useAuth()
   const now = React.useMemo(() => new Date(), [])
 
   const [creditors, setCreditors] = React.useState<ApiCreditor[]>([])
-  const [month, setMonth] = React.useState(String(now.getMonth() + 1))
-  const [year, setYear] = React.useState(String(now.getFullYear()))
+  const [monthState, setMonth] = React.useState(String(now.getMonth() + 1))
+  const [yearState, setYear] = React.useState(String(now.getFullYear()))
+  const month = monthProp ?? monthState
+  const year = yearProp ?? yearState
+  const isControlled = monthProp !== undefined && yearProp !== undefined
   const [isLoading, setIsLoading] = React.useState(false)
 
   const [isAddOpen, setIsAddOpen] = React.useState(false)
@@ -141,22 +148,26 @@ export function CreditorsSection({
           {isLoading && <span className="text-xs text-muted-foreground/50">...</span>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={month} onValueChange={setMonth}>
-            <SelectTrigger className="h-7 w-[110px] border-border bg-background text-xs text-foreground">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {MONTHS.map((m, i) => <SelectItem key={i} value={String(i + 1)}>{m.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={year} onValueChange={setYear}>
-            <SelectTrigger className="h-7 w-[80px] border-border bg-background text-xs text-foreground">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {years.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          {!isControlled && (
+            <>
+              <Select value={month} onValueChange={setMonth}>
+                <SelectTrigger className="h-7 w-[110px] border-border bg-background text-xs text-foreground">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MONTHS.map((m, i) => <SelectItem key={i} value={String(i + 1)}>{m.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={year} onValueChange={setYear}>
+                <SelectTrigger className="h-7 w-[80px] border-border bg-background text-xs text-foreground">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {years.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </>
+          )}
           <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
             <DialogTrigger asChild>
               <Button size="sm" variant="outline" className="h-7 px-3 text-xs">

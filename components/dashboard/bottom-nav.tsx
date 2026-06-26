@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Brain, LayoutDashboard, LifeBuoy, RefreshCw, ShieldCheck, Tag, TrendingDown, TrendingUp } from "lucide-react"
+import { Brain, LayoutDashboard, LifeBuoy, LogOut, RefreshCw, ShieldCheck, Tag, TrendingDown, TrendingUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/hooks/use-auth"
 import { TagsSheet } from "./tags-sheet"
@@ -19,7 +19,7 @@ const navItems = [
 
 export function BottomNav() {
   const pathname = usePathname()
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
   const [tagsOpen, setTagsOpen] = useState(false)
 
   return (
@@ -66,6 +66,13 @@ export function BottomNav() {
             >
               <Tag className="size-5 shrink-0" />
               <span className="truncate text-[10px] font-medium">Tags</span>
+            </button>
+            <button
+              onClick={logout}
+              className="flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg px-1 py-2 text-muted-foreground transition-all hover:text-red-400"
+            >
+              <LogOut className="size-5 shrink-0" />
+              <span className="truncate text-[10px] font-medium">Sair</span>
             </button>
           </div>
         </div>

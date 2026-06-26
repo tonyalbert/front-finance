@@ -9,6 +9,8 @@ import {
   CheckCircle2,
   DollarSign,
   FileText,
+  Layers,
+  Plus,
   Tag,
   TrendingDown,
   Trash2,
@@ -26,7 +28,6 @@ import {
   formatDateDisplay,
   formatDateInput,
   toNumber,
-  getQuarter,
 } from "@/lib/finance-utils"
 import { PageShell } from "@/components/dashboard/page-shell"
 import { DatePickerCell } from "@/components/dashboard/date-picker-cell"
@@ -49,7 +50,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import {
@@ -67,7 +67,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 export default function DespesasPage() {
   const { token } = useAuth()
@@ -77,7 +76,7 @@ export default function DespesasPage() {
 
   const [selectedYear, setSelectedYear] = useSelectedYear()
   const selectedYearNumber = Number(selectedYear)
-  const [expenseQuarter, setExpenseQuarter] = React.useState<string>("month")
+  const [selectedMonth, setSelectedMonth] = React.useState<string>(String(currentMonthIndex + 1))
 
   const [tags, setTags] = React.useState<ApiTag[]>([])
   const [expenses, setExpenses] = React.useState<ApiExpense[]>([])
@@ -91,7 +90,8 @@ export default function DespesasPage() {
   const [sortDirection, setSortDirection] = React.useState<"asc" | "desc">("desc")
   const [selectedExpenseIds, setSelectedExpenseIds] = React.useState<Set<string>>(() => new Set())
 
-  const [isInstallmentDialogOpen, setIsInstallmentDialogOpen] = React.useState(false)
+  const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false)
+  const [addStep, setAddStep] = React.useState<"choose" | "installment">("choose")
   const [selectedMonthForInstallment, setSelectedMonthForInstallment] = React.useState<number | null>(null)
   const [installmentMonths, setInstallmentMonths] = React.useState<number>(1)
   const [installmentItem, setInstallmentItem] = React.useState("")
@@ -152,12 +152,10 @@ export default function DespesasPage() {
       .filter((exp) => {
         const d = new Date(exp.date)
         if (d.getFullYear() !== selectedYearNumber) return false
-        if (expenseQuarter === "all") return true
-        if (expenseQuarter === "month") return d.getMonth() === currentMonthIndex
-        return expenseQuarter === `q${getQuarter(d.getMonth())}`
+        return d.getMonth() + 1 === Number(selectedMonth)
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }, [expenses, selectedYearNumber, expenseQuarter, currentMonthIndex])
+  }, [expenses, selectedYearNumber, selectedMonth])
 
   const expenseRowsByMonth = React.useMemo(() => {
     const map = new Map<number, ApiExpense[]>()
@@ -311,7 +309,8 @@ export default function DespesasPage() {
           isPaid: false,
         }),
       })
-      setIsInstallmentDialogOpen(false)
+      setIsAddDialogOpen(false)
+      setAddStep("choose")
       setSelectedMonthForInstallment(null)
       setInstallmentMonths(1)
       setInstallmentItem("")
@@ -361,11 +360,11 @@ export default function DespesasPage() {
     }
   }
 
-  const visibleMonths = MONTHS.map((month, monthIndex) => {
-    const quarterLabel = getQuarter(monthIndex)
-    const isVisible = expenseQuarter === "all" || (expenseQuarter === "month" && monthIndex === currentMonthIndex) || expenseQuarter === `q${quarterLabel}`
-    return { month, monthIndex, isVisible }
-  }).filter((m) => m.isVisible)
+  const visibleMonths = MONTHS.map((month, monthIndex) => ({
+    month,
+    monthIndex,
+    isVisible: monthIndex + 1 === Number(selectedMonth),
+  })).filter((m) => m.isVisible)
 
   const totalExpensePeriod = React.useMemo(
     () => expenseRows.reduce((s, r) => s + toNumber(r.amount), 0),
@@ -384,16 +383,16 @@ export default function DespesasPage() {
       selectedYear={selectedYear}
       onYearChange={setSelectedYear}
       headerActions={
-        <Tabs value={expenseQuarter} onValueChange={setExpenseQuarter}>
-          <TabsList className="h-auto flex-wrap gap-y-1">
-            <TabsTrigger value="month">Mês atual</TabsTrigger>
-            <TabsTrigger value="all">Todos</TabsTrigger>
-            <TabsTrigger value="q1">1º tri</TabsTrigger>
-            <TabsTrigger value="q2">2º tri</TabsTrigger>
-            <TabsTrigger value="q3">3º tri</TabsTrigger>
-            <TabsTrigger value="q4">4º tri</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+          <SelectTrigger className="h-8 w-[130px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {MONTHS.map((m, i) => (
+              <SelectItem key={i} value={String(i + 1)}>{m.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       }
     >
       {isLoadingData && <p className="text-sm text-muted-foreground">Carregando...</p>}
@@ -407,7 +406,7 @@ export default function DespesasPage() {
 
       {/* Credores */}
       <div className="rounded-2xl border border-border bg-card p-5 backdrop-blur-sm">
-        <CreditorsSection availableYears={availableYears} refreshKey={creditorsRefreshKey} expenses={expenses} />
+        <CreditorsSection availableYears={availableYears} refreshKey={creditorsRefreshKey} expenses={expenses} month={selectedMonth} year={selectedYear} />
       </div>
 
       {/* Total do período */}
@@ -454,51 +453,7 @@ export default function DespesasPage() {
                       {savingRowId === "delete" ? "Excluindo..." : "Excluir selecionadas"}
                     </Button>
                   )}
-                  <Dialog open={isInstallmentDialogOpen} onOpenChange={setIsInstallmentDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" variant="secondary" onClick={() => { setSelectedMonthForInstallment(monthIndex); setIsInstallmentDialogOpen(true) }} disabled={savingRowId === monthKey}>
-                        {savingRowId === monthKey ? "Adicionando..." : "Compra Parcelada"}
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader><DialogTitle>Adicionar Compra Parcelada</DialogTitle></DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="mb-2 block text-sm font-medium">Nome da Compra</label>
-                          <Input placeholder="Ex: TV 55 polegadas" value={installmentItem} onChange={(e) => setInstallmentItem(e.target.value)} />
-                        </div>
-                        <div>
-                          <label className="mb-2 block text-sm font-medium">Valor de Cada Parcela</label>
-                          <Input type="number" min="0.01" step="0.01" placeholder="Ex: 150.00" value={installmentAmount} onChange={(e) => setInstallmentAmount(e.target.value)} />
-                        </div>
-                        <div>
-                          <label className="mb-2 block text-sm font-medium">Credor (Opcional)</label>
-                          <Select value={installmentCreditorId} onValueChange={setInstallmentCreditorId}>
-                            <SelectTrigger><SelectValue placeholder="Selecione um credor" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">Sem credor</SelectItem>
-                              {allCreditors.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <label className="mb-2 block text-sm font-medium">Número de Parcelas</label>
-                          <Input type="number" min="1" max="60" value={installmentMonths} onChange={(e) => setInstallmentMonths(Number(e.target.value))} />
-                        </div>
-                        <div className="rounded-lg bg-muted p-3 text-sm">
-                          <p className="font-medium">Resumo:</p>
-                          <p className="text-muted-foreground">{installmentMonths}x de {installmentAmount ? formatBRL(Number(installmentAmount)) : "R$ 0,00"}</p>
-                          <p className="text-muted-foreground">Total: {installmentAmount && installmentMonths ? formatBRL(Number(installmentAmount) * installmentMonths) : "R$ 0,00"}</p>
-                          {selectedMonthForInstallment !== null && <p className="text-muted-foreground">Começando em {MONTHS[selectedMonthForInstallment].label} de {selectedYearNumber}</p>}
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" onClick={() => { setIsInstallmentDialogOpen(false); setInstallmentMonths(1); setInstallmentItem(""); setInstallmentAmount("") }}>Cancelar</Button>
-                          <Button onClick={() => { if (selectedMonthForInstallment !== null) handleAddInstallment(selectedMonthForInstallment) }} disabled={!installmentItem || !installmentAmount || installmentMonths < 1}>Criar Parcelas</Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                  <Button size="sm" variant="outline" onClick={() => handleAddExpense(monthIndex)} disabled={savingRowId === monthKey}>
+                  <Button size="sm" variant="outline" onClick={() => { setSelectedMonthForInstallment(monthIndex); setAddStep("choose"); setIsAddDialogOpen(true) }} disabled={savingRowId === monthKey}>
                     {savingRowId === monthKey ? "Adicionando..." : "Adicionar"}
                   </Button>
                 </div>
@@ -640,6 +595,94 @@ export default function DespesasPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Add expense dialog — unified (choose type or fill installment form) */}
+      <Dialog open={isAddDialogOpen} onOpenChange={(open) => { if (!open) { setIsAddDialogOpen(false); setAddStep("choose"); setInstallmentMonths(1); setInstallmentItem(""); setInstallmentAmount(""); setInstallmentCreditorId("") } }}>
+        <DialogContent className="sm:max-w-md">
+          {addStep === "choose" ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Adicionar despesa</DialogTitle>
+              </DialogHeader>
+              <div className="mt-2 grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => {
+                    setIsAddDialogOpen(false)
+                    setAddStep("choose")
+                    if (selectedMonthForInstallment !== null) handleAddExpense(selectedMonthForInstallment)
+                  }}
+                  className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-accent/50"
+                >
+                  <div className="flex size-9 items-center justify-center rounded-lg border border-border bg-background">
+                    <Plus className="size-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Despesa simples</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">Adicione e edite direto na tabela</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setAddStep("installment")}
+                  className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-accent/50"
+                >
+                  <div className="flex size-9 items-center justify-center rounded-lg border border-border bg-background">
+                    <Layers className="size-4 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Compra parcelada</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">Divida em múltiplas parcelas mensais</p>
+                  </div>
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>Compra Parcelada</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Nome da Compra</label>
+                  <Input placeholder="Ex: TV 55 polegadas" value={installmentItem} onChange={(e) => setInstallmentItem(e.target.value)} />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Valor de Cada Parcela</label>
+                  <Input type="number" min="0.01" step="0.01" placeholder="Ex: 150.00" value={installmentAmount} onChange={(e) => setInstallmentAmount(e.target.value)} />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Credor (Opcional)</label>
+                  <Select value={installmentCreditorId} onValueChange={setInstallmentCreditorId}>
+                    <SelectTrigger><SelectValue placeholder="Selecione um credor" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem credor</SelectItem>
+                      {allCreditors.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">Número de Parcelas</label>
+                  <Input type="number" min="1" max="60" value={installmentMonths} onChange={(e) => setInstallmentMonths(Number(e.target.value))} />
+                </div>
+                <div className="rounded-lg bg-muted p-3 text-sm">
+                  <p className="font-medium">Resumo:</p>
+                  <p className="text-muted-foreground">{installmentMonths}x de {installmentAmount ? formatBRL(Number(installmentAmount)) : "R$ 0,00"}</p>
+                  <p className="text-muted-foreground">Total: {installmentAmount && installmentMonths ? formatBRL(Number(installmentAmount) * installmentMonths) : "R$ 0,00"}</p>
+                  {selectedMonthForInstallment !== null && <p className="text-muted-foreground">Começando em {MONTHS[selectedMonthForInstallment].label} de {selectedYearNumber}</p>}
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setAddStep("choose")} className="text-muted-foreground">
+                    Voltar
+                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => { setIsAddDialogOpen(false); setAddStep("choose"); setInstallmentMonths(1); setInstallmentItem(""); setInstallmentAmount("") }}>Cancelar</Button>
+                    <Button onClick={() => { if (selectedMonthForInstallment !== null) handleAddInstallment(selectedMonthForInstallment) }} disabled={!installmentItem || !installmentAmount || installmentMonths < 1}>Criar Parcelas</Button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Delete group dialog */}
       <AlertDialog open={!!pendingDeleteGroupId} onOpenChange={(open) => { if (!open) setPendingDeleteGroupId(null) }}>
