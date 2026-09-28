@@ -1,28 +1,27 @@
 "use client"
 
 import * as React from "react"
-import { toast } from "sonner"
-import { CalendarClock, RefreshCw } from "lucide-react"
+import { RefreshCw } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { apiFetch } from "@/lib/api"
-import type { ApiFixedExpense, ApiGenerateResult } from "@/lib/finance-types"
-import { MONTHS, formatBRL, toNumber } from "@/lib/finance-utils"
-import { Button } from "@/components/ui/button"
-import { Spinner } from "@/components/ui/spinner"
+import type { ApiFixedExpense } from "@/lib/finance-types"
+import { formatBRL, toNumber } from "@/lib/finance-utils"
+import {
+  competenceKey,
+  formatVigency,
+  isEligibleInMonth,
+} from "@/lib/fixed-expense-utils"
 
 export function FixedExpensesSummary({
   month,
   year,
-  onGenerated,
 }: {
   month: string  // 1-12
   year: string
-  onGenerated?: () => void
 }) {
   const { token } = useAuth()
   const [fixedExpenses, setFixedExpenses] = React.useState<ApiFixedExpense[]>([])
   const [isLoading, setIsLoading] = React.useState(false)
-  const [isGenerating, setIsGenerating] = React.useState(false)
 
   React.useEffect(() => {
     if (!token) return
@@ -35,33 +34,16 @@ export function FixedExpensesSummary({
     return () => { cancelled = true }
   }, [token])
 
-  const active = fixedExpenses.filter((fe) => fe.isActive)
+  // Apenas regras ativas e vigentes no mes visto.
+  const competence = competenceKey(year, month)
+  const active = React.useMemo(
+    () => fixedExpenses.filter((fe) => isEligibleInMonth(fe, competence)),
+    [fixedExpenses, competence],
+  )
   const total = React.useMemo(
     () => active.reduce((s, fe) => s + toNumber(fe.amount), 0),
     [active],
   )
-  const monthLabel = MONTHS[Number(month) - 1]?.label ?? ""
-
-  async function handleGenerate() {
-    if (!token) return
-    setIsGenerating(true)
-    try {
-      const result = await apiFetch<ApiGenerateResult>(
-        `/fixed-expenses/generate/${year}/${month}`,
-        { method: "POST", token },
-      )
-      const geradas = result.generated
-      const ignoradas = result.skipped
-      toast.success(
-        `${geradas} despesa${geradas !== 1 ? "s" : ""} gerada${geradas !== 1 ? "s" : ""} para ${monthLabel}${ignoradas > 0 ? `, ${ignoradas} já existia${ignoradas !== 1 ? "m" : ""}` : ""}.`,
-      )
-      onGenerated?.()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao gerar despesas.")
-    } finally {
-      setIsGenerating(false)
-    }
-  }
 
   if (!isLoading && active.length === 0) return null
 
@@ -78,20 +60,6 @@ export function FixedExpensesSummary({
           )}
           {isLoading && <span className="text-xs text-muted-foreground/50">...</span>}
         </div>
-        {active.length > 0 && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 px-3 text-xs"
-            onClick={handleGenerate}
-            disabled={isGenerating}
-          >
-            {isGenerating
-              ? <Spinner className="mr-1.5 size-3" />
-              : <CalendarClock className="mr-1.5 size-3" />}
-            {isGenerating ? "Gerando..." : `Gerar ${monthLabel} ${year}`}
-          </Button>
-        )}
       </div>
 
       {/* List */}
@@ -123,7 +91,7 @@ export function FixedExpensesSummary({
                       </span>
                     )}
                   </div>
-                  <p className="mt-0.5 text-xs text-muted-foreground/50">recorrente mensal</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground/50">{formatVigency(fe)}</p>
                 </div>
 
                 {/* Amount */}

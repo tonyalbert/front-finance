@@ -8,7 +8,6 @@ import { ArrowLeft, ArrowRight, Wallet } from "lucide-react"
 
 import { apiFetch, ApiError } from "@/lib/api"
 import { Spinner } from "@/components/ui/spinner"
-import { AuthBackground } from "@/components/ui/background-paper-shaders"
 
 function ResetPasswordForm() {
   const router = useRouter()
@@ -60,26 +59,22 @@ function ResetPasswordForm() {
   if (!token || tokenError) {
     return (
       <div className="text-center">
-        <h1 className="text-xl font-bold tracking-tight text-white">
-          Link inválido
-        </h1>
-        <p className="mt-3 text-sm leading-relaxed text-white/50">
+        <h1 className="text-xl font-bold tracking-tight text-zinc-900">Link inválido</h1>
+        <p className="mt-3 text-sm leading-relaxed text-zinc-500">
           {tokenError ?? "Nenhum token de recuperação encontrado neste link."}
         </p>
-        <p className="mt-1 text-sm text-white/40">
-          Solicite um novo link de recuperação.
-        </p>
+        <p className="mt-1 text-sm text-zinc-400">Solicite um novo link de recuperação.</p>
         <Link
           href="/forgot-password"
-          className="mt-8 flex items-center justify-center gap-2 rounded-xl bg-red-500 px-6 py-2.5 text-sm font-semibold text-white
-            shadow-lg shadow-red-500/25 hover:bg-red-400 hover:shadow-red-400/30 transition-all duration-200"
+          className="mt-8 flex items-center justify-center gap-2 rounded-lg bg-red-600 px-6 py-2.5 text-sm font-semibold text-white
+            hover:bg-red-500 transition-colors duration-150"
         >
           Solicitar novo link
           <ArrowRight className="size-4" />
         </Link>
         <Link
           href="/login"
-          className="mt-4 flex items-center justify-center gap-2 text-sm text-white/40 hover:text-white/70 transition-colors"
+          className="mt-4 flex items-center justify-center gap-2 text-sm text-zinc-500 hover:text-zinc-700 transition-colors"
         >
           <ArrowLeft className="size-4" />
           Voltar para o login
@@ -90,18 +85,12 @@ function ResetPasswordForm() {
 
   return (
     <>
-      <div className="mb-8 text-center">
-        <h1 className="text-2xl font-bold tracking-tight text-white">
-          Redefinir senha
-        </h1>
-        <p className="mt-2 text-sm text-white/45">
-          Crie uma nova senha para sua conta.
-        </p>
-      </div>
+      <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Redefinir senha</h1>
+      <p className="mt-2 text-sm text-zinc-500">Crie uma nova senha para sua conta.</p>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="mt-8 space-y-4">
         <div className="space-y-1.5">
-          <label htmlFor="password" className="block text-sm font-medium text-white/70">
+          <label htmlFor="password" className="block text-sm font-medium text-zinc-700">
             Nova senha
           </label>
           <input
@@ -113,15 +102,15 @@ function ResetPasswordForm() {
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={6}
-            className="w-full rounded-xl border border-white/12 bg-white/6 px-4 py-2.5 text-sm text-white
-              placeholder:text-white/25 backdrop-blur-sm outline-none
-              focus:border-white/25 focus:bg-white/10 focus:ring-2 focus:ring-white/8
-              transition-all duration-200"
+            className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900
+              placeholder:text-zinc-400 outline-none
+              focus:border-red-500 focus:ring-2 focus:ring-red-500/10
+              transition-colors"
           />
         </div>
 
         <div className="space-y-1.5">
-          <label htmlFor="confirmPassword" className="block text-sm font-medium text-white/70">
+          <label htmlFor="confirmPassword" className="block text-sm font-medium text-zinc-700">
             Confirmar nova senha
           </label>
           <input
@@ -133,20 +122,20 @@ function ResetPasswordForm() {
             onChange={(e) => setConfirmPassword(e.target.value)}
             required
             minLength={6}
-            className="w-full rounded-xl border border-white/12 bg-white/6 px-4 py-2.5 text-sm text-white
-              placeholder:text-white/25 backdrop-blur-sm outline-none
-              focus:border-white/25 focus:bg-white/10 focus:ring-2 focus:ring-white/8
-              transition-all duration-200"
+            className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900
+              placeholder:text-zinc-400 outline-none
+              focus:border-red-500 focus:ring-2 focus:ring-red-500/10
+              transition-colors"
           />
         </div>
 
         <button
           type="submit"
           disabled={isLoading}
-          className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-red-500 px-6 py-2.5 text-sm font-semibold text-white
-            shadow-lg shadow-red-500/25 hover:bg-red-400 hover:shadow-red-400/30
-            disabled:opacity-60 disabled:cursor-not-allowed
-            transition-all duration-200"
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-6 py-2.5 text-sm font-semibold text-white
+            hover:bg-red-500 active:bg-red-700
+            disabled:opacity-50 disabled:cursor-not-allowed
+            transition-colors duration-150"
         >
           {isLoading ? <Spinner className="size-4" /> : null}
           {isLoading ? "Redefinindo..." : "Redefinir senha"}
@@ -157,7 +146,7 @@ function ResetPasswordForm() {
       <div className="mt-6">
         <Link
           href="/login"
-          className="flex items-center justify-center gap-2 text-sm text-white/40 hover:text-white/70 transition-colors"
+          className="flex items-center justify-center gap-2 text-sm text-zinc-500 hover:text-zinc-700 transition-colors"
         >
           <ArrowLeft className="size-4" />
           Voltar para o login
@@ -169,33 +158,51 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <AuthBackground>
-      <div className="flex min-h-screen flex-col items-center justify-center px-4 py-16">
-
+    <div className="flex min-h-screen bg-white">
+      {/* ── Esquerda: painel do formulário ── */}
+      <div className="relative flex w-full flex-col lg:w-[460px] xl:w-[520px] shrink-0">
         {/* Logo */}
-        <Link href="/" className="mb-10 flex items-center gap-2 text-white/80 hover:text-white transition-colors">
-          <Wallet className="size-6 text-red-400" />
-          <span className="text-lg font-bold tracking-tight">Pit Finance</span>
-        </Link>
+        <div className="flex items-center gap-2.5 p-8">
+          <Wallet className="size-5 text-red-500" />
+          <span className="text-base font-bold tracking-tight text-zinc-900">Pit Finance</span>
+        </div>
 
-        {/* Glass card */}
-        <div className="relative w-full max-w-sm">
-          <div className="absolute inset-0 rounded-2xl border border-white/10 bg-white/6 backdrop-blur-xl
-            shadow-[inset_0_1px_0_rgba(255,255,255,0.12),inset_0_-1px_0_rgba(0,0,0,0.2),0_24px_64px_rgba(0,0,0,0.5)]" />
-
-          <div className="relative z-10 p-8">
-            <Suspense fallback={
-              <div className="flex items-center justify-center py-8">
-                <Spinner className="size-6" />
-              </div>
-            }>
+        {/* Formulário — centralizado verticalmente */}
+        <div className="flex flex-1 flex-col justify-center px-8 pb-8 lg:px-14">
+          <div className="w-full max-w-sm">
+            <Suspense
+              fallback={
+                <div className="flex items-center justify-center py-8">
+                  <Spinner className="size-6" />
+                </div>
+              }
+            >
               <ResetPasswordForm />
             </Suspense>
           </div>
         </div>
 
-        <p className="mt-10 text-xs text-white/20">&copy; {new Date().getFullYear()} Pit Finance</p>
+        {/* Rodapé */}
+        <p className="p-8 text-xs text-zinc-400">&copy; {new Date().getFullYear()} Pit Finance</p>
       </div>
-    </AuthBackground>
+
+      {/* ── Direita: painel de marca ── */}
+      <div className="relative hidden flex-1 flex-col items-center justify-center overflow-hidden border-l border-zinc-200 bg-gradient-to-br from-red-50 via-rose-50 to-white p-16 lg:flex">
+        <div className="max-w-md text-center">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-1.5 text-xs text-zinc-500">
+            <div className="size-1.5 rounded-full bg-red-500" />
+            Segurança em primeiro lugar
+          </div>
+          <h2 className="text-4xl font-bold leading-tight tracking-tight text-zinc-900">
+            Suas finanças,
+            <br />
+            sob controle
+          </h2>
+          <p className="mt-5 text-base leading-relaxed text-zinc-500">
+            Crie uma nova senha e volte a controlar seus gastos com tranquilidade.
+          </p>
+        </div>
+      </div>
+    </div>
   )
 }

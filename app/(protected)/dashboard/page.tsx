@@ -230,14 +230,6 @@ export default function DashboardPage() {
     return () => { cancelled = true }
   }, [token])
 
-  const refreshExpenses = React.useCallback(async () => {
-    if (!token) return
-    try {
-      const res = await apiFetch<ApiExpense[]>("/expenses", { token })
-      setExpenses(res)
-    } catch { /* silent */ }
-  }, [token])
-
   const selectedYearNumber = Number(selectedYear)
   const selectedMonthIndex = Number(selectedMonth)
 
@@ -628,7 +620,6 @@ export default function DashboardPage() {
       <FixedExpensesSummary
         month={String(selectedMonthIndex + 1)}
         year={selectedYear}
-        onGenerated={refreshExpenses}
       />
 
       {/* Credores */}

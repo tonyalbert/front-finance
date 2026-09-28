@@ -1,11 +1,9 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import {
   AlertCircle,
-  CalendarClock,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
@@ -17,10 +15,19 @@ import {
 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { apiFetch } from "@/lib/api"
-import type { ApiCreditor, ApiFixedExpense, ApiGenerateResult, ApiTag } from "@/lib/finance-types"
-import { MONTHS, formatBRL, toNumber } from "@/lib/finance-utils"
+import type { ApiCreditor, ApiFixedExpense, ApiTag } from "@/lib/finance-types"
+import { formatBRL, toNumber } from "@/lib/finance-utils"
+import {
+  competenceKey,
+  formatVigency,
+  getStatus,
+  isEligibleInMonth,
+  localToday,
+  type FixedExpenseStatus,
+} from "@/lib/fixed-expense-utils"
 import { PageShell } from "@/components/dashboard/page-shell"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   AlertDialog,
@@ -48,14 +55,14 @@ import {
 } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 
-const today = new Date().toISOString().slice(0, 10)
+const today = localToday()
 const currentMonth = String(new Date().getMonth() + 1)
 const currentYear = String(new Date().getFullYear())
-const availableYears = [
-  new Date().getFullYear() - 1,
-  new Date().getFullYear(),
-  new Date().getFullYear() + 1,
-]
+const STATUS_LABEL: Record<FixedExpenseStatus, string> = {
+  active: "Ativa",
+  paused: "Pausada",
+  ended: "Encerrada",
+}
 
 function emptyForm() {
   return {
@@ -63,13 +70,14 @@ function emptyForm() {
     amount: "",
     dayOfMonth: "1",
     startDate: today,
+    endDate: "",
+    noEndDate: true,
     tagId: "",
     creditorId: "",
   }
 }
 
 export default function FixedExpensesPage() {
-  const router = useRouter()
   const { token } = useAuth()
 
   const [fixedExpenses, setFixedExpenses] = React.useState<ApiFixedExpense[]>([])
@@ -83,12 +91,6 @@ export default function FixedExpensesPage() {
   const [editingId, setEditingId] = React.useState<string | null>(null)
   const [isSaving, setIsSaving] = React.useState(false)
   const [form, setForm] = React.useState(emptyForm())
-
-  // Generate dialog
-  const [isGenerateOpen, setIsGenerateOpen] = React.useState(false)
-  const [generateMonth, setGenerateMonth] = React.useState(currentMonth)
-  const [generateYear, setGenerateYear] = React.useState(currentYear)
-  const [isGenerating, setIsGenerating] = React.useState(false)
 
   // Delete dialog
   const [pendingDeleteId, setPendingDeleteId] = React.useState<string | null>(null)
@@ -117,12 +119,17 @@ export default function FixedExpensesPage() {
     return () => { cancelled = true }
   }, [token])
 
-  const active = fixedExpenses.filter((fe) => fe.isActive)
-  const inactive = fixedExpenses.filter((fe) => !fe.isActive)
+  const currentCompetence = competenceKey(currentYear, currentMonth)
+  const active = fixedExpenses.filter((fe) => getStatus(fe, currentCompetence) === "active")
+  const inactive = fixedExpenses.filter((fe) => getStatus(fe, currentCompetence) !== "active")
 
+  // Total mensal: so regras ativas e vigentes no mes corrente.
   const totalMonthly = React.useMemo(
-    () => active.reduce((s, fe) => s + toNumber(fe.amount), 0),
-    [active],
+    () =>
+      fixedExpenses
+        .filter((fe) => isEligibleInMonth(fe, currentCompetence))
+        .reduce((s, fe) => s + toNumber(fe.amount), 0),
+    [fixedExpenses, currentCompetence],
   )
 
   function openCreate() {
@@ -138,6 +145,8 @@ export default function FixedExpensesPage() {
       amount: String(toNumber(fe.amount)),
       dayOfMonth: String(fe.dayOfMonth),
       startDate: fe.startDate.slice(0, 10),
+      endDate: fe.endDate ? fe.endDate.slice(0, 10) : "",
+      noEndDate: !fe.endDate,
       tagId: fe.tagId ?? "",
       creditorId: fe.creditorId ?? "",
     })
@@ -160,12 +169,18 @@ export default function FixedExpensesPage() {
     if (!Number.isFinite(amount) || amount <= 0) { toast.error("Valor precisa ser maior que zero."); return }
     if (!Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31) { toast.error("Dia do vencimento deve ser entre 1 e 31."); return }
     if (!form.startDate) { toast.error("Informe a data de início."); return }
+    if (!form.noEndDate) {
+      if (!form.endDate) { toast.error("Informe a data de fim ou marque \"Sem data fim\"."); return }
+      if (form.endDate < form.startDate) { toast.error("A data de fim deve ser igual ou posterior à data de início."); return }
+    }
 
     const body = {
       name,
       amount,
       dayOfMonth,
-      startDate: new Date(form.startDate).toISOString(),
+      // YYYY-MM-DD como veio do input (sem conversao de fuso); null = sem data fim
+      startDate: form.startDate,
+      endDate: form.noEndDate ? null : form.endDate,
       tagId: form.tagId || null,
       creditorId: form.creditorId || null,
     }
@@ -207,7 +222,7 @@ export default function FixedExpensesPage() {
         body: JSON.stringify({ isActive: !fe.isActive }),
       })
       setFixedExpenses((prev) => prev.map((f) => f.id === fe.id ? updated : f))
-      toast.success(updated.isActive ? "Despesa reativada!" : "Despesa desativada!")
+      toast.success(updated.isActive ? "Despesa reativada!" : "Despesa pausada!")
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao alterar status.")
     } finally {
@@ -230,46 +245,20 @@ export default function FixedExpensesPage() {
     }
   }
 
-  async function handleGenerate() {
-    if (!token) return
-    setIsGenerating(true)
-    try {
-      const result = await apiFetch<ApiGenerateResult>(
-        `/fixed-expenses/generate/${generateYear}/${generateMonth}`,
-        { method: "POST", token },
-      )
-      toast.success(
-        `${result.generated} despesa${result.generated !== 1 ? "s" : ""} gerada${result.generated !== 1 ? "s" : ""}, ${result.skipped} ignorada${result.skipped !== 1 ? "s" : ""}.`,
-      )
-      setIsGenerateOpen(false)
-      router.push("/despesas")
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao gerar despesas.")
-    } finally {
-      setIsGenerating(false)
-    }
-  }
-
   return (
     <PageShell
       title="Despesas Fixas"
       headerActions={
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsGenerateOpen(true)}
-          >
-            <CalendarClock className="mr-2 size-4" />
-            Gerar mês
-          </Button>
-          <Button size="sm" onClick={openCreate}>
-            <Plus className="mr-2 size-4" />
-            Nova despesa fixa
-          </Button>
-        </div>
+        <Button size="sm" onClick={openCreate}>
+          <Plus className="mr-2 size-4" />
+          Nova despesa fixa
+        </Button>
       }
     >
+      <p className="text-sm text-muted-foreground">
+        As despesas fixas aparecem automaticamente nos próximos 12 meses.
+      </p>
+
       {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
 
       {/* KPI cards */}
@@ -284,14 +273,14 @@ export default function FixedExpensesPage() {
         <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
           <AlertCircle className="size-4 shrink-0 text-muted-foreground/60" />
           <div>
-            <p className="text-xs text-muted-foreground">Inativas</p>
+            <p className="text-xs text-muted-foreground">Pausadas / encerradas</p>
             <p className="text-base font-bold tabular-nums text-muted-foreground">{inactive.length}</p>
           </div>
         </div>
         <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
           <CheckCircle2 className="size-4 shrink-0 text-red-400" />
           <div>
-            <p className="text-xs text-muted-foreground">Total mensal</p>
+            <p className="text-xs text-muted-foreground">Total mensal (vigentes)</p>
             <p className="text-base font-bold tabular-nums text-red-400">{formatBRL(totalMonthly)}</p>
           </div>
         </div>
@@ -305,7 +294,7 @@ export default function FixedExpensesPage() {
         <CardContent className="px-0 pb-2">
           {active.length === 0 ? (
             <p className="px-5 py-4 text-sm text-muted-foreground/60">
-              Nenhuma despesa fixa ativa. Clique em "Nova despesa fixa" para criar.
+              Nenhuma despesa fixa ativa. Clique em &quot;Nova despesa fixa&quot; para criar.
             </p>
           ) : (
             <div className="divide-y divide-border/50">
@@ -332,7 +321,7 @@ export default function FixedExpensesPage() {
               className="flex w-full items-center justify-between text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               onClick={() => setShowInactive((v) => !v)}
             >
-              <span>Inativas ({inactive.length})</span>
+              <span>Pausadas e encerradas ({inactive.length})</span>
               {showInactive ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
             </button>
           </CardHeader>
@@ -402,6 +391,31 @@ export default function FixedExpensesPage() {
                 onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
               />
             </div>
+            <div className="space-y-2">
+              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+                <Checkbox
+                  checked={form.noEndDate}
+                  onCheckedChange={(v) =>
+                    setForm((p) => ({ ...p, noEndDate: v === true, endDate: v === true ? "" : p.endDate }))
+                  }
+                />
+                Sem data fim
+              </label>
+              {!form.noEndDate && (
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Data de fim</label>
+                  <Input
+                    type="date"
+                    min={form.startDate || undefined}
+                    value={form.endDate}
+                    onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))}
+                  />
+                </div>
+              )}
+            </div>
+            <p className="rounded-md border border-border bg-accent/30 px-3 py-2 text-xs text-muted-foreground">
+              Se você já lançou este mês manualmente, exclua o lançamento manual.
+            </p>
             <div>
               <label className="mb-1.5 block text-sm font-medium">Categoria</label>
               <Select
@@ -449,60 +463,6 @@ export default function FixedExpensesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Generate month dialog */}
-      <Dialog open={isGenerateOpen} onOpenChange={(open) => { if (!open) setIsGenerateOpen(false) }}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Gerar despesas do mês</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Selecione o mês e ano para gerar as despesas fixas ativas. Despesas já existentes serão ignoradas.
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Mês</label>
-              <Select value={generateMonth} onValueChange={setGenerateMonth}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MONTHS.map((m, i) => (
-                    <SelectItem key={i + 1} value={String(i + 1)}>{m.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Ano</label>
-              <Select value={generateYear} onValueChange={setGenerateYear}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableYears.map((y) => (
-                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setIsGenerateOpen(false)} disabled={isGenerating}>
-              Cancelar
-            </Button>
-            <Button onClick={handleGenerate} disabled={isGenerating || active.length === 0}>
-              {isGenerating ? <Spinner className="mr-2 size-4" /> : <CalendarClock className="mr-2 size-4" />}
-              {isGenerating ? "Gerando..." : `Gerar ${active.length} despesa${active.length !== 1 ? "s" : ""}`}
-            </Button>
-          </div>
-          {active.length === 0 && (
-            <p className="text-center text-xs text-muted-foreground/60">
-              Nenhuma despesa fixa ativa para gerar.
-            </p>
-          )}
-        </DialogContent>
-      </Dialog>
-
       {/* Delete confirmation */}
       <AlertDialog open={!!pendingDeleteId} onOpenChange={(open) => { if (!open) setPendingDeleteId(null) }}>
         <AlertDialogContent>
@@ -538,20 +498,25 @@ function FixedExpenseRow({
   onDelete: (id: string) => void
 }) {
   const isToggling = togglingId === fe.id
+  const status = getStatus(fe, competenceKey(currentYear, currentMonth))
+  const muted = status !== "active"
 
   return (
     <div className="group flex items-center gap-3 px-5 py-3 transition-colors hover:bg-accent/20">
       {/* Status dot */}
-      <div className={`size-2 shrink-0 rounded-full ${fe.isActive ? "bg-emerald-400" : "bg-muted-foreground/30"}`} />
+      <div className={`size-2 shrink-0 rounded-full ${status === "active" ? "bg-emerald-400" : status === "paused" ? "bg-orange-400/70" : "bg-muted-foreground/30"}`} />
 
       {/* Info */}
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className={`text-sm font-medium ${fe.isActive ? "text-foreground/90" : "text-muted-foreground/60"}`}>
+          <span className={`text-sm font-medium ${muted ? "text-muted-foreground/60" : "text-foreground/90"}`}>
             {fe.name}
           </span>
           <span className="shrink-0 rounded-full border border-border bg-accent/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
             dia {fe.dayOfMonth}
+          </span>
+          <span className="shrink-0 rounded-full border border-border bg-accent/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            {STATUS_LABEL[status]}
           </span>
           {fe.tag && (
             <span className="shrink-0 rounded-full border border-border bg-accent/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
@@ -565,17 +530,17 @@ function FixedExpenseRow({
           )}
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground/50">
-          Desde {new Date(fe.startDate).toLocaleDateString("pt-BR", { month: "short", year: "numeric" })}
+          {formatVigency(fe)}
         </p>
       </div>
 
       {/* Amount */}
-      <span className={`shrink-0 text-sm font-semibold tabular-nums ${fe.isActive ? "text-foreground" : "text-muted-foreground/50"}`}>
+      <span className={`shrink-0 text-sm font-semibold tabular-nums ${muted ? "text-muted-foreground/50" : "text-foreground"}`}>
         {formatBRL(toNumber(fe.amount))}
       </span>
 
       {/* Actions */}
-      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+      <div className="flex shrink-0 items-center gap-1 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
         <button
           onClick={() => onEdit(fe)}
           className="rounded p-1 hover:bg-accent"
@@ -587,7 +552,7 @@ function FixedExpenseRow({
           onClick={() => onToggle(fe)}
           disabled={isToggling}
           className="rounded p-1 hover:bg-accent"
-          title={fe.isActive ? "Desativar" : "Reativar"}
+          title={fe.isActive ? "Pausar" : "Reativar"}
         >
           {isToggling
             ? <Spinner className="size-3.5" />

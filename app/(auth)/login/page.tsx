@@ -5,7 +5,6 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { ArrowRight, Wallet } from "lucide-react"
-import { MeshGradient } from "@paper-design/shaders-react"
 
 import { useAuth } from "@/hooks/use-auth"
 import { Spinner } from "@/components/ui/spinner"
@@ -33,22 +32,19 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-zinc-950">
-
+    <div className="flex min-h-screen bg-white">
       {/* ── Esquerda: painel do formulário ── */}
-      <div className="relative flex w-full flex-col border-r border-white/[0.04] lg:w-[460px] xl:w-[520px] shrink-0">
-
+      <div className="relative flex w-full flex-col lg:w-[460px] xl:w-[520px] shrink-0">
         {/* Logo */}
         <div className="flex items-center gap-2.5 p-8">
-          <Wallet className="size-5 text-red-400" />
-          <span className="text-base font-bold tracking-tight text-white">Pit Finance</span>
+          <Wallet className="size-5 text-red-500" />
+          <span className="text-base font-bold tracking-tight text-zinc-900">Pit Finance</span>
         </div>
 
         {/* Formulário — centralizado verticalmente */}
         <div className="flex flex-1 flex-col justify-center px-8 pb-8 lg:px-14">
           <div className="w-full max-w-sm">
-
-            <h1 className="text-2xl font-bold tracking-tight text-white">
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
               Bem-vindo de volta
             </h1>
             <p className="mt-2 text-sm text-zinc-500">
@@ -57,7 +53,7 @@ export default function LoginPage() {
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-5">
               <div className="space-y-1.5">
-                <label htmlFor="email" className="block text-sm font-medium text-zinc-300">
+                <label htmlFor="email" className="block text-sm font-medium text-zinc-700">
                   Email
                 </label>
                 <input
@@ -68,21 +64,21 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-white
-                    placeholder:text-zinc-600 outline-none
-                    focus:border-red-500/40 focus:ring-2 focus:ring-red-500/10
-                    transition-all duration-200"
+                  className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900
+                    placeholder:text-zinc-400 outline-none
+                    focus:border-red-500 focus:ring-2 focus:ring-red-500/10
+                    transition-colors"
                 />
               </div>
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label htmlFor="password" className="block text-sm font-medium text-zinc-300">
+                  <label htmlFor="password" className="block text-sm font-medium text-zinc-700">
                     Senha
                   </label>
                   <Link
                     href="/forgot-password"
-                    className="text-xs text-zinc-500 hover:text-red-400 transition-colors"
+                    className="text-xs text-zinc-500 hover:text-red-600 transition-colors"
                   >
                     Esqueceu a senha?
                   </Link>
@@ -95,10 +91,10 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-white
-                    placeholder:text-zinc-600 outline-none
-                    focus:border-red-500/40 focus:ring-2 focus:ring-red-500/10
-                    transition-all duration-200"
+                  className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900
+                    placeholder:text-zinc-400 outline-none
+                    focus:border-red-500 focus:ring-2 focus:ring-red-500/10
+                    transition-colors"
                 />
               </div>
 
@@ -117,16 +113,16 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-6 flex items-center gap-3">
-              <div className="h-px flex-1 bg-zinc-800" />
-              <span className="text-xs text-zinc-600">ou</span>
-              <div className="h-px flex-1 bg-zinc-800" />
+              <div className="h-px flex-1 bg-zinc-200" />
+              <span className="text-xs text-zinc-400">ou</span>
+              <div className="h-px flex-1 bg-zinc-200" />
             </div>
 
             <p className="mt-6 text-center text-sm text-zinc-500">
               Ainda não tem conta?{" "}
               <Link
                 href="/register"
-                className="font-medium text-red-400 hover:text-red-300 transition-colors"
+                className="font-medium text-red-600 hover:text-red-500 transition-colors"
               >
                 Crie uma agora
               </Link>
@@ -135,33 +131,26 @@ export default function LoginPage() {
         </div>
 
         {/* Rodapé */}
-        <p className="p-8 text-xs text-zinc-700">&copy; {new Date().getFullYear()} Pit Finance</p>
+        <p className="p-8 text-xs text-zinc-400">&copy; {new Date().getFullYear()} Pit Finance</p>
       </div>
 
-      {/* ── Direita: fundo animado ── */}
-      <div className="relative hidden flex-1 overflow-hidden lg:block">
-        <MeshGradient
-          className="absolute inset-0 h-full w-full"
-          colors={["#000000", "#0c0000", "#1c0000", "#7f1d1d"]}
-          speed={0.6}
-        />
-        {/* Conteúdo sobreposto */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-16">
-          <div className="max-w-md text-center">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-4 py-1.5 text-xs text-white/50 backdrop-blur-sm">
-              <div className="size-1.5 rounded-full bg-red-400" />
-              Controle financeiro inteligente
-            </div>
-            <h2 className="text-4xl font-bold leading-tight tracking-tight text-white/90">
-              Suas finanças,<br />sob controle
-            </h2>
-            <p className="mt-5 text-base leading-relaxed text-white/35">
-              Acompanhe despesas, receitas e credores em um único lugar. Simples, rápido e seguro.
-            </p>
+      {/* ── Direita: painel de marca ── */}
+      <div className="relative hidden flex-1 flex-col items-center justify-center overflow-hidden border-l border-zinc-200 bg-gradient-to-br from-red-50 via-rose-50 to-white p-16 lg:flex">
+        <div className="max-w-md text-center">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-1.5 text-xs text-zinc-500">
+            <div className="size-1.5 rounded-full bg-red-500" />
+            Controle financeiro inteligente
           </div>
+          <h2 className="text-4xl font-bold leading-tight tracking-tight text-zinc-900">
+            Suas finanças,
+            <br />
+            sob controle
+          </h2>
+          <p className="mt-5 text-base leading-relaxed text-zinc-500">
+            Acompanhe despesas, receitas e credores em um único lugar. Simples, rápido e seguro.
+          </p>
         </div>
       </div>
-
     </div>
   )
 }

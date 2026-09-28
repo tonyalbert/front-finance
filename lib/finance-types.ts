@@ -17,6 +17,7 @@ export type ApiExpense = {
   installmentGroupId?: string | null
   installmentNumber?: number | null
   installmentTotal?: number | null
+  fixedExpenseCompetence?: string | null
 }
 
 export type ApiTag = {
@@ -51,6 +52,7 @@ export type ApiFixedExpense = {
   amount: string
   dayOfMonth: number
   startDate: string
+  endDate: string | null
   isActive: boolean
   tagId: string | null
   creditorId: string | null
@@ -58,12 +60,6 @@ export type ApiFixedExpense = {
   creditor: { id: string; name: string } | null
   createdAt: string
   updatedAt: string
-}
-
-export type ApiGenerateResult = {
-  generated: number
-  skipped: number
-  expenses: ApiExpense[]
 }
 
 export type MonthCardData = {
