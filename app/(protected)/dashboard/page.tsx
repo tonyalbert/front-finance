@@ -1,10 +1,11 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { toast } from "sonner"
-import { ArrowDown, ArrowUp, DollarSign, TrendingDown, TrendingUp, Wallet } from "lucide-react"
+import { AlertCircle, CalendarCheck, Plus, TrendingDown, TrendingUp, Wallet, Clock, PieChart as PieIcon } from "lucide-react"
+import { Bar, BarChart, CartesianGrid, Pie, ReferenceArea, PieChart, XAxis, YAxis, Label as RechartsLabel } from "recharts"
 import { useAuth } from "@/hooks/use-auth"
-import { useSelectedYear } from "@/hooks/use-selected-year"
 import { apiFetch } from "@/lib/api"
 import type { ApiIncome, ApiExpense, ApiTag, ApiCreditor, MonthCardData } from "@/lib/finance-types"
 import {
@@ -15,204 +16,215 @@ import {
   buildTopCategories,
   buildDonutData,
   formatBRL,
-  INCOME_PALETTE,
-  EXPENSE_PALETTE,
+  getExpenseStatus,
+  isInMonth,
+  utcParts,
 } from "@/lib/finance-utils"
+import { cn } from "@/lib/utils"
+import { usePeriod } from "@/components/dashboard/period-provider"
+import { PageShell } from "@/components/dashboard/page-shell"
 import { MonthCard } from "@/components/dashboard/month-card"
-import { CompactLegend } from "@/components/dashboard/compact-legend"
 import { CreditorsSection } from "@/components/dashboard/creditors-section"
 import { FixedExpensesSummary } from "@/components/dashboard/fixed-expenses-summary"
+import { InstallmentsSection } from "@/components/dashboard/installments-section"
+import { KpiCard, type KpiDelta } from "@/components/finance/kpi-card"
+import { StatusBadge } from "@/components/finance/status-badge"
+import { InstallmentBadge } from "@/components/finance/installment-badge"
+import { EmptyState } from "@/components/finance/empty-state"
+import { ChartSkeleton, KpiRowSkeleton } from "@/components/finance/skeletons"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  LabelList,
-  Pie,
-  PieChart,
-  XAxis,
-  Label as RechartsLabel,
-} from "recharts"
-
-function fmt(v: number) {
-  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2 })
-}
 
 function fmtShort(v: unknown): string {
   const n = Number(v)
-  if (!n) return ""
-  if (n >= 1_000_000) return `${(n / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}M`
-  if (n >= 1_000) return `${(n / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}k`
+  if (!n) return "0"
+  if (n >= 1_000_000) return `${(n / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`
+  if (n >= 1_000) return `${(n / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mil`
   return n.toLocaleString("pt-BR", { maximumFractionDigits: 0 })
 }
 
-function PiePercentLabel({
-  cx, cy, midAngle, outerRadius, percent, fill,
-}: {
-  cx: number; cy: number; midAngle: number
-  innerRadius: number; outerRadius: number; percent: number; fill: string
-  [key: string]: unknown
-}) {
-  if (percent < 0.05) return null
-  const RADIAN = Math.PI / 180
-  const radius = outerRadius + 20
-  const x = cx + radius * Math.cos(-midAngle * RADIAN)
-  const y = cy + radius * Math.sin(-midAngle * RADIAN)
-  return (
-    <text
-      x={x}
-      y={y}
-      fill={fill}
-      textAnchor={x > cx ? "start" : "end"}
-      dominantBaseline="central"
-      style={{ fontSize: 10, fontWeight: 700 }}
-    >
-      {`${(percent * 100).toFixed(0)}%`}
-    </text>
-  )
+/** Rótulo de barra: R$ 5.123 (sem centavos; o valor exato fica no tooltip) */
+function fmtLabel(v: unknown): string {
+  const n = Number(v)
+  if (!n) return "R$ 0,00"
+  return `R$ ${n.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}`
 }
 
+/**
+ * Tick do eixo X em 3 linhas: mês, receita e despesa. Os valores ficam abaixo das barras,
+ * cada um na sua linha, então nunca colidem, por maior que seja o texto.
+ */
+function MonthTick({
+  x,
+  y,
+  payload,
+  selectedIndex,
+  data,
+}: {
+  x?: number
+  y?: number
+  payload?: { value: string; index: number }
+  selectedIndex: number
+  data: { receitas: number; gastos: number }[]
+}) {
+  const i = payload?.index ?? 0
+  const selected = i === selectedIndex
+  const row = data[i]
+  const cx = x ?? 0
+  const top = (y ?? 0) + 6
+  return (
+    <g>
+      <text
+        x={cx}
+        y={top}
+        textAnchor="middle"
+        dominantBaseline="hanging"
+        className={selected ? "fill-foreground" : "fill-muted-foreground"}
+        fontSize={12}
+        fontWeight={selected ? 700 : 500}
+      >
+        {payload?.value}
+      </text>
+      {row && (
+        <>
+          <circle cx={cx - 31} cy={top + 25} r={3} fill="var(--series-in)" />
+          <text x={cx - 25} y={top + 25} dominantBaseline="central" className="num fill-foreground" fontSize={11}>
+            {fmtLabel(row.receitas)}
+          </text>
+          <circle cx={cx - 31} cy={top + 42} r={3} fill="var(--series-out)" />
+          <text x={cx - 25} y={top + 42} dominantBaseline="central" className="num fill-foreground" fontSize={11}>
+            {fmtLabel(row.gastos)}
+          </text>
+        </>
+      )}
+    </g>
+  )
+}
 function pctDelta(curr: number, prev: number): number | null {
   if (prev === 0) return null
   return ((curr - prev) / prev) * 100
 }
 
-function InstallmentsSection({
-  expenses,
-  tagById,
-  creditorById,
+function makeDelta(pct: number | null, upIsGood: boolean): KpiDelta | undefined {
+  if (pct == null) return undefined
+  const rounded = Math.round(pct * 10) / 10
+  const direction = rounded > 0 ? "up" : rounded < 0 ? "down" : "flat"
+  const sentiment = rounded === 0 ? "neutral" : (rounded > 0) === upIsGood ? "good" : "bad"
+  const text = `${rounded > 0 ? "+" : ""}${rounded.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`
+  return { text, direction, sentiment }
+}
+
+/** Dia do mês exibido (mesmo critério UTC de formatDateDisplay). */
+function dayOf(date: string) {
+  const d = new Date(date)
+  return Number.isNaN(d.getTime()) ? "—" : String(d.getUTCDate()).padStart(2, "0")
+}
+
+function SectionCard({
+  title,
+  description,
+  action,
+  className,
+  children,
 }: {
-  expenses: import("@/lib/finance-types").ApiExpense[]
-  tagById: Map<string, import("@/lib/finance-types").ApiTag>
-  creditorById: Map<string, string>
+  title: string
+  description?: string
+  action?: React.ReactNode
+  className?: string
+  children: React.ReactNode
 }) {
-  const groups = React.useMemo(() => {
-    const map = new Map<string, {
-      groupId: string
-      item: string
-      amount: number
-      total: number
-      paidCount: number
-      tagName: string | null
-      creditorName: string | null
-    }>()
-
-    expenses.forEach((e) => {
-      if (!e.installmentGroupId) return
-      const existing = map.get(e.installmentGroupId)
-      if (!existing) {
-        map.set(e.installmentGroupId, {
-          groupId: e.installmentGroupId,
-          item: e.item,
-          amount: toNumber(e.amount),
-          total: e.installmentTotal ?? 1,
-          paidCount: e.isPaid ? 1 : 0,
-          tagName: (e.tagId ? tagById.get(e.tagId)?.name : undefined) ?? null,
-          creditorName: (e.creditorId ? creditorById.get(e.creditorId) : undefined) ?? null,
-        })
-      } else {
-        if (e.isPaid) existing.paidCount++
-      }
-    })
-
-    return Array.from(map.values())
-      .filter((g) => g.paidCount < g.total)                               // só abertas
-      .sort((a, b) => (a.total - a.paidCount) - (b.total - b.paidCount)) // menos restantes primeiro
-  }, [expenses, tagById, creditorById])
-
-  if (groups.length === 0) return null
-
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 backdrop-blur-sm">
-      <div className="mb-4 flex items-center gap-3">
-        <span className="text-sm font-semibold text-muted-foreground">Compras Parceladas</span>
-        <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-xs text-blue-300">
-          {groups.length} ativa{groups.length !== 1 ? "s" : ""}
-        </span>
-      </div>
-
-      <div className="overflow-hidden rounded-xl border border-border">
-        <div className="divide-y divide-border/50">
-          {groups.map((g) => {
-            const pct = Math.round((g.paidCount / g.total) * 100)
-            const remaining = g.total - g.paidCount
-            const remainingValue = g.amount * remaining
-
-            return (
-              <div key={g.groupId} className="flex items-center gap-4 px-4 py-3">
-                {/* Item name + meta */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="truncate text-sm font-medium text-foreground/90">{g.item}</span>
-                    {g.tagName && (
-                      <span className="shrink-0 rounded-full border border-border bg-accent/50 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                        {g.tagName}
-                      </span>
-                    )}
-                    {g.creditorName && (
-                      <span className="shrink-0 rounded-full border border-orange-500/15 bg-orange-500/8 px-1.5 py-0.5 text-[10px] text-orange-300/70">
-                        {g.creditorName}
-                      </span>
-                    )}
-                  </div>
-                  {/* Progress bar */}
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-border">
-                      <div
-                        className="h-full rounded-full bg-blue-400/60 transition-all"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <span className="shrink-0 rounded-full bg-blue-500/12 px-2 py-0.5 text-xs font-semibold tabular-nums text-blue-300">
-                      {g.paidCount}/{g.total}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Amounts */}
-                <div className="shrink-0 text-right">
-                  <p className="text-sm font-semibold tabular-nums text-foreground/80">
-                    {formatBRL(g.amount)}<span className="text-xs font-normal text-muted-foreground">/mês</span>
-                  </p>
-                  <p className="text-xs tabular-nums text-muted-foreground">
-                    {remaining} restante{remaining !== 1 ? "s" : ""} · {formatBRL(remainingValue)}
-                  </p>
-                </div>
-              </div>
-            )
-          })}
+    <Card className={cn("gap-0 py-0", className)}>
+      <CardHeader className="flex-row items-start justify-between gap-3 px-5 pb-0 pt-[18px] max-md:px-4">
+        <div className="min-w-0">
+          <CardTitle className="text-[15px] font-semibold tracking-tight">{title}</CardTitle>
+          {description && <p className="mt-0.5 text-[13px] text-muted-foreground">{description}</p>}
         </div>
-      </div>
+        {action}
+      </CardHeader>
+      <CardContent className="px-5 pb-5 pt-3 max-md:px-4">{children}</CardContent>
+    </Card>
+  )
+}
+
+function CategoryDonut({
+  data,
+  config,
+  total,
+  countLabel,
+  emptyTitle,
+}: {
+  data: { name: string; value: number; fill: string }[]
+  config: React.ComponentProps<typeof ChartContainer>["config"]
+  total: number
+  countLabel: string
+  emptyTitle: string
+}) {
+  if (data.length === 0) {
+    return <EmptyState icon={PieIcon} title={emptyTitle} className="py-8" />
+  }
+  return (
+    <div className="flex flex-col gap-5">
+      <ChartContainer config={config} className="mx-auto aspect-square h-[188px] w-[188px]">
+        <PieChart>
+          <ChartTooltip
+            cursor={false}
+            content={
+              <ChartTooltipContent
+                nameKey="name"
+                formatter={(v) => <span className="num font-medium text-foreground">{formatBRL(Number(v))}</span>}
+              />
+            }
+          />
+          <Pie data={data} dataKey="value" nameKey="name" innerRadius={62} outerRadius={90} stroke="var(--card)" strokeWidth={2}>
+            <RechartsLabel
+              content={({ viewBox }) => {
+                if (!viewBox || !("cx" in viewBox) || !("cy" in viewBox)) return null
+                const cx = viewBox.cx as number
+                const cy = viewBox.cy as number
+                return (
+                  <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle">
+                    <tspan className="num fill-foreground text-[17px] font-semibold">{formatBRL(total)}</tspan>
+                    <tspan x={cx} y={cy + 18} className="fill-muted-foreground text-xs">
+                      {countLabel}
+                    </tspan>
+                  </text>
+                )
+              }}
+            />
+          </Pie>
+        </PieChart>
+      </ChartContainer>
+      <ul className="flex flex-col gap-2">
+        {data.map((d) => (
+          <li key={d.name} className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-2 text-[13px]">
+            <span className="size-2.5 rounded-[3px]" style={{ backgroundColor: d.fill }} aria-hidden />
+            <span className="truncate">{d.name}</span>
+            <span className="num">{formatBRL(d.value)}</span>
+            <span className="num w-11 text-right text-muted-foreground">
+              {total > 0 ? ((d.value / total) * 100).toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : "0,0"}%
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
 
 export default function DashboardPage() {
   const { token } = useAuth()
+  const { month: selectedMonthIndex, year: selectedYearNumber, setMonth } = usePeriod()
   const now = React.useMemo(() => new Date(), [])
   const currentYear = now.getFullYear()
   const currentMonthIndex = now.getMonth()
 
-  const [selectedYear, setSelectedYear] = useSelectedYear()
-  const [selectedMonth, setSelectedMonth] = React.useState(String(currentMonthIndex))
-  const [activeTab, setActiveTab] = React.useState(`q${getQuarter(currentMonthIndex)}`)
   const [tags, setTags] = React.useState<ApiTag[]>([])
   const [incomes, setIncomes] = React.useState<ApiIncome[]>([])
   const [expenses, setExpenses] = React.useState<ApiExpense[]>([])
   const [allCreditors, setAllCreditors] = React.useState<ApiCreditor[]>([])
-  const [isLoadingData, setIsLoadingData] = React.useState(false)
+  const [isLoadingData, setIsLoadingData] = React.useState(true)
+  const [payingId, setPayingId] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     if (!token) return
@@ -224,438 +236,484 @@ export default function DashboardPage() {
       apiFetch<ApiExpense[]>("/expenses", { token }),
       apiFetch<ApiCreditor[]>("/creditors/summary", { token }),
     ])
-      .then(([t, i, e, c]) => { if (!cancelled) { setTags(t); setIncomes(i); setExpenses(e); setAllCreditors(c) } })
-      .catch((err) => { if (!cancelled) toast.error(err instanceof Error ? err.message : "Erro ao carregar dados.") })
-      .finally(() => { if (!cancelled) setIsLoadingData(false) })
-    return () => { cancelled = true }
+      .then(([t, i, e, c]) => {
+        if (!cancelled) {
+          setTags(t)
+          setIncomes(i)
+          setExpenses(e)
+          setAllCreditors(c)
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) toast.error(err instanceof Error ? err.message : "Erro ao carregar dados.")
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingData(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [token])
-
-  const selectedYearNumber = Number(selectedYear)
-  const selectedMonthIndex = Number(selectedMonth)
-
-  const availableYears = React.useMemo(() => {
-    const s = new Set<number>()
-    incomes.forEach((i) => s.add(new Date(i.date).getFullYear()))
-    expenses.forEach((e) => s.add(new Date(e.date).getFullYear()))
-    s.add(currentYear)
-    s.add(currentYear + 1)
-    return Array.from(s).sort((a, b) => b - a)
-  }, [incomes, expenses, currentYear])
 
   const tagById = React.useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags])
   const creditorById = React.useMemo(() => new Map(allCreditors.map((c) => [c.id, c.name])), [allCreditors])
 
-  // Month cards (full year)
+  const inPeriod = React.useCallback(
+    (date: string, year = selectedYearNumber, month = selectedMonthIndex) => {
+      return isInMonth(date, year, month)
+    },
+    [selectedYearNumber, selectedMonthIndex],
+  )
+
+  // ── Depende só do ANO do período ─────────────────────────────────────────
   const monthCards = React.useMemo((): MonthCardData[] => {
     const inc = Array(12).fill(0)
     const exp = Array(12).fill(0)
-    incomes.forEach((i) => { const d = new Date(i.date); if (d.getFullYear() === selectedYearNumber) inc[d.getMonth()] += toNumber(i.amount) })
-    expenses.forEach((e) => { const d = new Date(e.date); if (d.getFullYear() === selectedYearNumber) exp[d.getMonth()] += toNumber(e.amount) })
+    incomes.forEach((i) => {
+      const p = utcParts(i.date)
+      if (p && p.year === selectedYearNumber) inc[p.month] += toNumber(i.amount)
+    })
+    expenses.forEach((e) => {
+      const p = utcParts(e.date)
+      if (p && p.year === selectedYearNumber) exp[p.month] += toNumber(e.amount)
+    })
     return MONTHS.map((m, mi) => {
       const q = getQuarter(mi)
       return {
-        key: `${selectedYear}-${mi}`,
+        key: `${selectedYearNumber}-${mi}`,
         label: m.label,
         quarter: q,
         year: selectedYearNumber,
         income: inc[mi],
         expense: exp[mi],
-        dotColor: q === 1 ? "var(--color-chart-1)" : q === 2 ? "var(--color-chart-2)" : q === 3 ? "var(--color-chart-3)" : "var(--color-chart-4)",
+        dotColor: `var(--chart-${q})`,
         isCurrentMonth: selectedYearNumber === currentYear && mi === currentMonthIndex,
       }
     })
-  }, [incomes, expenses, selectedYearNumber, selectedYear, currentYear, currentMonthIndex])
+  }, [incomes, expenses, selectedYearNumber, currentYear, currentMonthIndex])
 
-  // Area chart — full year
-  const monthlySpendData = React.useMemo(() => {
-    const limit = selectedYearNumber === currentYear ? currentMonthIndex : 11
-    return monthCards.slice(0, limit + 1).map((m, i) => ({ month: MONTHS[i].short, gastos: m.expense, receitas: m.income }))
-  }, [monthCards, selectedYearNumber, currentYear, currentMonthIndex])
+  const yearChartData = React.useMemo(
+    () =>
+      monthCards.map((m, i) => ({
+        month: MONTHS[i].short,
+        index: i,
+        receitas: m.income,
+        gastos: m.expense,
+        saldo: m.income - m.expense,
+      })),
+    [monthCards],
+  )
+  const yearIncome = monthCards.reduce((s, m) => s + m.income, 0)
+  const yearExpense = monthCards.reduce((s, m) => s + m.expense, 0)
 
-  // KPI data — selected month
+  // ── Depende do MÊS do período ────────────────────────────────────────────
   const kpiData = React.useMemo(() => {
-    const curr = monthCards[selectedMonthIndex]
-    const prevIdx = selectedMonthIndex - 1
-    const prev = prevIdx >= 0 ? monthCards[prevIdx] : null
-    const pendentes = expenses
-      .filter((e) => { const d = new Date(e.date); return !e.isPaid && d.getFullYear() === selectedYearNumber && d.getMonth() === selectedMonthIndex })
-      .reduce((s, e) => s + toNumber(e.amount), 0)
-    const income = curr?.income ?? 0
-    const expense = curr?.expense ?? 0
+    const prevMonth = selectedMonthIndex === 0 ? 11 : selectedMonthIndex - 1
+    const prevYear = selectedMonthIndex === 0 ? selectedYearNumber - 1 : selectedYearNumber
+    const sum = <T extends { date: string; amount: unknown }>(list: T[], y: number, m: number, filter?: (x: T) => boolean) =>
+      list
+        .filter((x) => inPeriod(x.date, y, m) && (!filter || filter(x)))
+        .reduce((s, x) => s + toNumber(x.amount), 0)
+    const income = sum(incomes, selectedYearNumber, selectedMonthIndex)
+    const expense = sum(expenses, selectedYearNumber, selectedMonthIndex)
+    const pending = expenses.filter((e) => !e.isPaid && inPeriod(e.date))
     return {
       income,
       expense,
       balance: income - expense,
-      pendentes,
-      incomeDelta: prev ? pctDelta(income, prev.income) : null,
-      expenseDelta: prev ? pctDelta(expense, prev.expense) : null,
+      pendingTotal: pending.reduce((s, e) => s + toNumber(e.amount), 0),
+      pendingCount: pending.length,
+      incomeDelta: pctDelta(income, sum(incomes, prevYear, prevMonth)),
+      expenseDelta: pctDelta(expense, sum(expenses, prevYear, prevMonth)),
+      prevLabel: MONTHS[prevMonth].label.toLowerCase(),
     }
-  }, [monthCards, selectedMonthIndex, expenses, selectedYearNumber])
+  }, [incomes, expenses, selectedYearNumber, selectedMonthIndex, inPeriod])
 
-  // Donuts — selected month
-  const { incomesData, incomesConfig, totalIncome } = React.useMemo(() => {
+  const { incomesData, incomesConfig, totalIncome, incomeCount } = React.useMemo(() => {
     const totals = new Map<string, number>()
+    let count = 0
     incomes.forEach((i) => {
-      const d = new Date(i.date)
-      if (d.getFullYear() !== selectedYearNumber || d.getMonth() !== selectedMonthIndex) return
+      if (!inPeriod(i.date)) return
+      count++
       const k = (i.tagId ? tagById.get(i.tagId)?.name : undefined) || i.source || "Outros"
       totals.set(k, (totals.get(k) ?? 0) + toNumber(i.amount))
     })
-    const { data, config } = buildDonutData(buildTopCategories(Array.from(totals.entries()), 4), INCOME_PALETTE)
-    return { incomesData: data, incomesConfig: config, totalIncome: data.reduce((s, d) => s + d.value, 0) }
-  }, [incomes, tagById, selectedYearNumber, selectedMonthIndex])
+    const { data, config } = buildDonutData(buildTopCategories(Array.from(totals.entries()), 4))
+    return { incomesData: data, incomesConfig: config, totalIncome: data.reduce((s, d) => s + d.value, 0), incomeCount: count }
+  }, [incomes, tagById, inPeriod])
 
-  const { expensesData, expensesConfig, totalExpense } = React.useMemo(() => {
+  const { expensesData, expensesConfig, totalExpense, expenseCount } = React.useMemo(() => {
     const totals = new Map<string, number>()
+    let count = 0
     expenses.forEach((e) => {
-      const d = new Date(e.date)
-      if (d.getFullYear() !== selectedYearNumber || d.getMonth() !== selectedMonthIndex) return
+      if (!inPeriod(e.date)) return
+      count++
       const k = (e.tagId ? tagById.get(e.tagId)?.name : undefined) || e.item || "Outros"
       totals.set(k, (totals.get(k) ?? 0) + toNumber(e.amount))
     })
-    const { data, config } = buildDonutData(buildTopCategories(Array.from(totals.entries()), 4), EXPENSE_PALETTE)
-    return { expensesData: data, expensesConfig: config, totalExpense: data.reduce((s, d) => s + d.value, 0) }
-  }, [expenses, tagById, selectedYearNumber, selectedMonthIndex])
+    const { data, config } = buildDonutData(buildTopCategories(Array.from(totals.entries()), 4))
+    return { expensesData: data, expensesConfig: config, totalExpense: data.reduce((s, d) => s + d.value, 0), expenseCount: count }
+  }, [expenses, tagById, inPeriod])
 
-  // Top 6 despesas — selected month
-  const topExpenses = React.useMemo(() => {
-    return expenses
-      .filter((e) => { const d = new Date(e.date); return d.getFullYear() === selectedYearNumber && d.getMonth() === selectedMonthIndex })
-      .sort((a, b) => toNumber(b.amount) - toNumber(a.amount))
-      .slice(0, 6)
-  }, [expenses, selectedYearNumber, selectedMonthIndex])
+  const topExpenses = React.useMemo(
+    () =>
+      expenses
+        .filter((e) => inPeriod(e.date))
+        .sort((a, b) => toNumber(b.amount) - toNumber(a.amount))
+        .slice(0, 6),
+    [expenses, inPeriod],
+  )
 
-  // Bar chart saldo — full year
-  const balanceBarData = React.useMemo(() => {
-    const limit = selectedYearNumber === currentYear ? currentMonthIndex : 11
-    return monthCards.slice(0, limit + 1).map((m, i) => ({ month: MONTHS[i].short, saldo: m.income - m.expense }))
-  }, [monthCards, selectedYearNumber, currentYear, currentMonthIndex])
+  const upcoming = React.useMemo(
+    () =>
+      expenses
+        .filter((e) => !e.isPaid && inPeriod(e.date))
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        .slice(0, 5),
+    [expenses, inPeriod],
+  )
 
-  const monthsWithInstallments = React.useMemo(() => {
-    const s = new Set<number>()
-    expenses.forEach((e) => { if (e.installmentGroupId) s.add(new Date(e.date).getMonth()) })
-    return s
-  }, [expenses])
+  // ── Independe do período ─────────────────────────────────────────────────
+  const late = React.useMemo(() => {
+    const list = expenses.filter((e) => getExpenseStatus(e, now) === "late")
+    return { count: list.length, total: list.reduce((s, e) => s + toNumber(e.amount), 0) }
+  }, [expenses, now])
 
-  const monthLabel = MONTHS[selectedMonthIndex]?.label ?? ""
-
-  // ── KPI card component ───────────────────────────────────────────────────
-  function KpiCard({
-    label, value, delta, icon: Icon,
-    valueClass = "text-white",
-    iconClass = "bg-white/10 text-white/60",
-  }: {
-    label: string; value: string; delta?: number | null
-    icon: React.ComponentType<{ className?: string }>
-    valueClass?: string; iconClass?: string
-  }) {
-    return (
-      <div className="relative overflow-hidden rounded-2xl p-5">
-        <div className="absolute inset-0 rounded-2xl border border-border bg-card backdrop-blur-sm" />
-        <div className="relative z-10">
-          <div className="mb-3 flex items-start justify-between">
-            <span className="text-xs font-medium text-muted-foreground">{label}</span>
-            <div className={`rounded-xl p-2 ${iconClass}`}>
-              <Icon className="size-4" />
-            </div>
-          </div>
-          <div className={`text-2xl font-bold tabular-nums ${valueClass}`}>{value}</div>
-          {delta != null && (
-            <div className={`mt-1.5 flex items-center gap-1 text-xs ${delta >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-              {delta >= 0 ? <ArrowUp className="size-3" /> : <ArrowDown className="size-3" />}
-              {Math.abs(delta).toFixed(1)}% vs mês anterior
-            </div>
-          )}
-        </div>
-      </div>
-    )
+  async function markPaid(id: string) {
+    if (!token) return
+    setPayingId(id)
+    try {
+      await apiFetch(`/expenses/${id}`, { method: "PUT", token, body: JSON.stringify({ isPaid: true }) })
+      setExpenses((prev) => prev.map((e) => (e.id === id ? { ...e, isPaid: true } : e)))
+      toast.success("Despesa marcada como paga.")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao atualizar a despesa.")
+    } finally {
+      setPayingId(null)
+    }
   }
 
+  const monthName = MONTHS[selectedMonthIndex].label
+  const monthLower = `${monthName.toLowerCase()} de ${selectedYearNumber}`
+
   return (
-    <div className="flex flex-col gap-6 px-4 pb-24 pt-6 sm:px-6 md:pb-8">
-
-      {/* Header — filtros */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-xl font-semibold text-foreground sm:text-2xl">
-          <span className="size-2 shrink-0 rounded-full bg-primary" />
-          Dashboard
-          {isLoadingData && <span className="ml-2 text-sm font-normal text-muted-foreground">Carregando...</span>}
+    <PageShell
+      title="Visão geral"
+      subtitle={`Resumo de ${monthLower}`}
+      headerActions={
+        <>
+          <Button variant="outline" asChild>
+            <Link href="/receitas?nova=1">
+              <Plus /> Nova receita
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/despesas?nova=1">
+              <Plus /> Nova despesa
+            </Link>
+          </Button>
+        </>
+      }
+    >
+      {late.count > 0 && (
+        <div
+          role="status"
+          className="flex items-start gap-3 rounded-[10px] border border-expense/40 bg-expense-soft px-3.5 py-3"
+        >
+          <AlertCircle className="mt-0.5 size-5 shrink-0 text-expense" aria-hidden />
+          <div className="min-w-0 flex-1 text-[13px]">
+            <strong className="block text-sm font-semibold">
+              {late.count} despesa{late.count !== 1 ? "s" : ""} atrasada{late.count !== 1 ? "s" : ""}
+            </strong>
+            <span className="text-muted-foreground">Somam {formatBRL(late.total)} em aberto com vencimento já passado.</span>
+          </div>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/despesas?status=atrasado">Ver atrasadas</Link>
+          </Button>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-            <SelectTrigger className="w-[130px] border-border bg-background text-foreground">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {MONTHS.map((m, i) => (
-                <SelectItem key={i} value={String(i)}>{m.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={selectedYear} onValueChange={setSelectedYear}>
-            <SelectTrigger className="w-[100px] border-border bg-background text-foreground">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {availableYears.map((y) => (
-                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      )}
+
+      {/* Cards do topo: mês do período */}
+      {isLoadingData ? (
+        <KpiRowSkeleton />
+      ) : (
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-[repeat(auto-fit,minmax(min(220px,100%),1fr))] sm:gap-4">
+          <KpiCard
+            hero
+            label="Saldo do período"
+            icon={Wallet}
+            tone="primary"
+            value={formatBRL(kpiData.balance)}
+            valueClassName={kpiData.balance < 0 ? "text-expense" : undefined}
+            footnote={monthName}
+          />
+          <KpiCard
+            label="Receitas"
+            icon={TrendingUp}
+            tone="income"
+            value={formatBRL(kpiData.income)}
+            delta={makeDelta(kpiData.incomeDelta, true)}
+            footnote={kpiData.incomeDelta != null ? `vs. ${kpiData.prevLabel}` : undefined}
+          />
+          <KpiCard
+            label="Despesas"
+            icon={TrendingDown}
+            tone="expense"
+            value={formatBRL(kpiData.expense)}
+            delta={makeDelta(kpiData.expenseDelta, false)}
+            footnote={kpiData.expenseDelta != null ? `vs. ${kpiData.prevLabel}` : undefined}
+          />
+          <KpiCard
+            label="A pagar"
+            icon={Clock}
+            tone="warning"
+            value={formatBRL(kpiData.pendingTotal)}
+            footnote={`${kpiData.pendingCount} conta${kpiData.pendingCount !== 1 ? "s" : ""} pendente${kpiData.pendingCount !== 1 ? "s" : ""}`}
+          />
         </div>
+      )}
+
+      {/* Receitas × despesas (ano), com rótulos de dados */}
+      <SectionCard title="Receitas × despesas" description={`Por mês, em ${selectedYearNumber}`}>
+        {isLoadingData ? (
+          <ChartSkeleton />
+        ) : (
+          <div className="flex flex-col gap-3.5">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
+              <span className="inline-flex items-center gap-2">
+                <span className="size-2.5 rounded-[3px] bg-series-in" aria-hidden />
+                Receitas <strong className="num font-semibold">{formatBRL(yearIncome)}</strong>
+              </span>
+              <span className="inline-flex items-center gap-2">
+                <span className="size-2.5 rounded-[3px] bg-series-out" aria-hidden />
+                Despesas <strong className="num font-semibold">{formatBRL(yearExpense)}</strong>
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <ChartContainer config={spendConfig} className="aspect-auto h-[360px] w-full min-w-[860px]">
+                <BarChart data={yearChartData} barGap={3} barCategoryGap="10%" margin={{ left: 0, right: 8, top: 12 }}>
+                  <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
+                  <ReferenceArea
+                    x1={MONTHS[selectedMonthIndex].short}
+                    x2={MONTHS[selectedMonthIndex].short}
+                    fill="var(--muted)"
+                    fillOpacity={0.7}
+                    stroke="none"
+                  />
+                  <XAxis
+                    dataKey="month"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    height={70}
+                    interval={0}
+                    tick={(props) => <MonthTick {...props} selectedIndex={selectedMonthIndex} data={yearChartData} />}
+                  />
+                  <YAxis tickLine={false} axisLine={false} width={48} tickFormatter={fmtShort} />
+                  <ChartTooltip
+                    cursor={{ fill: "var(--muted)", opacity: 0.5 }}
+                    content={
+                      <ChartTooltipContent
+                        formatter={(v, name) => (
+                          <span className="flex w-full items-center justify-between gap-4">
+                            <span className="text-muted-foreground">{name === "receitas" ? "Receitas" : "Despesas"}</span>
+                            <span className="num font-medium text-foreground">{formatBRL(Number(v))}</span>
+                          </span>
+                        )}
+                      />
+                    }
+                  />
+                  <Bar dataKey="receitas" fill="var(--color-receitas)" radius={4} maxBarSize={44}>
+                  </Bar>
+                  <Bar dataKey="gastos" fill="var(--color-gastos)" radius={4} maxBarSize={44}>
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      {/* Categorias do mês */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <SectionCard title="Despesas por categoria" description={monthName}>
+          {isLoadingData ? (
+            <ChartSkeleton />
+          ) : (
+            <CategoryDonut
+              data={expensesData}
+              config={expensesConfig}
+              total={totalExpense}
+              countLabel={`${expenseCount} despesa${expenseCount !== 1 ? "s" : ""}`}
+              emptyTitle={`Sem despesas em ${monthName.toLowerCase()}`}
+            />
+          )}
+        </SectionCard>
+
+        <SectionCard title="Receitas por categoria" description={monthName}>
+          {isLoadingData ? (
+            <ChartSkeleton />
+          ) : (
+            <CategoryDonut
+              data={incomesData}
+              config={incomesConfig}
+              total={totalIncome}
+              countLabel={`${incomeCount} receita${incomeCount !== 1 ? "s" : ""}`}
+              emptyTitle={`Sem receitas em ${monthName.toLowerCase()}`}
+            />
+          )}
+        </SectionCard>
       </div>
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard
-          label={`Receita — ${monthLabel}`}
-          value={fmt(kpiData.income)}
-          delta={kpiData.incomeDelta}
-          icon={TrendingUp}
-          valueClass="text-emerald-400"
-          iconClass="bg-emerald-500/15 text-emerald-400"
-        />
-        <KpiCard
-          label={`Despesa — ${monthLabel}`}
-          value={fmt(kpiData.expense)}
-          delta={kpiData.expenseDelta}
-          icon={TrendingDown}
-          valueClass="text-red-400"
-          iconClass="bg-red-500/15 text-red-400"
-        />
-        <KpiCard
-          label="Saldo do mês"
-          value={fmt(kpiData.balance)}
-          icon={Wallet}
-          valueClass={kpiData.balance >= 0 ? "text-emerald-400" : "text-red-400"}
-          iconClass={kpiData.balance >= 0 ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"}
-        />
-        <KpiCard
-          label="Pendências"
-          value={fmt(kpiData.pendentes)}
-          icon={DollarSign}
-          valueClass="text-orange-400"
-          iconClass="bg-orange-500/15 text-orange-400"
-        />
-      </div>
-
-      {/* Gráfico de área + 2 donuts (layout 6+3+3) */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <Card className="lg:col-span-6 border-border bg-card backdrop-blur-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Receitas e despesas — {selectedYear}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={spendConfig} className="aspect-auto h-[260px] w-full">
-              <AreaChart data={monthlySpendData} margin={{ left: 12, right: 12 }}>
-                <CartesianGrid vertical={false} />
-                <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
-                <ChartTooltip
-                  cursor={false}
-                  content={
-                    <ChartTooltipContent
-                      indicator="line"
-                      formatter={(v) => (
-                        <span className="font-mono font-medium tabular-nums text-foreground">{fmt(Number(v))}</span>
-                      )}
-                    />
-                  }
-                />
-                <Area dataKey="receitas" type="monotone" stroke="var(--color-receitas)" fill="var(--color-receitas)" fillOpacity={0.15} strokeWidth={2} dot={{ r: 3, fill: "var(--color-receitas)" }}>
-                  <LabelList dataKey="receitas" position="top" offset={6} formatter={fmtShort} style={{ fontSize: 9, fill: "#34d399", fontWeight: 600 }} />
-                </Area>
-                <Area dataKey="gastos" type="monotone" stroke="var(--color-gastos)" fill="var(--color-gastos)" fillOpacity={0.15} strokeWidth={2} dot={{ r: 3, fill: "var(--color-gastos)" }}>
-                  <LabelList dataKey="gastos" position="bottom" offset={6} formatter={fmtShort} style={{ fontSize: 9, fill: "#f87171", fontWeight: 600 }} />
-                </Area>
-              </AreaChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-3 border-border bg-card backdrop-blur-sm">
-          <CardHeader className="pb-0">
-            <CardTitle className="text-sm font-medium">Receitas por categoria</CardTitle>
-            <p className="text-xs text-muted-foreground">{monthLabel}</p>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <ChartContainer config={incomesConfig} className="aspect-square h-[230px] w-full [&_.recharts-surface]:overflow-visible">
-              <PieChart margin={{ top: 24, right: 28, bottom: 24, left: 28 }}>
-                <ChartTooltip cursor={false} content={<ChartTooltipContent nameKey="name" formatter={(v) => <span className="font-mono tabular-nums text-foreground">{fmt(Number(v))}</span>} />} />
-                <Pie data={incomesData} dataKey="value" nameKey="name" innerRadius={48} outerRadius={70} stroke="transparent" label={PiePercentLabel} labelLine={false}>
-                  <RechartsLabel content={({ viewBox }) => {
-                    if (!viewBox || !("cx" in viewBox) || !("cy" in viewBox)) return null
-                    const cx = viewBox.cx as number
-                    const cy = viewBox.cy as number
-                    return (
-                      <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle">
-                        <tspan className="fill-foreground text-base font-bold">{fmt(totalIncome)}</tspan>
-                        <tspan x={cx} y={cy + 16} className="fill-muted-foreground text-[10px]">Total</tspan>
-                      </text>
-                    )
-                  }} />
-                </Pie>
-              </PieChart>
-            </ChartContainer>
-            <CompactLegend data={incomesData} config={incomesConfig} />
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-3 border-border bg-card backdrop-blur-sm">
-          <CardHeader className="pb-0">
-            <CardTitle className="text-sm font-medium">Despesas por categoria</CardTitle>
-            <p className="text-xs text-muted-foreground">{monthLabel}</p>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <ChartContainer config={expensesConfig} className="aspect-square h-[230px] w-full [&_.recharts-surface]:overflow-visible">
-              <PieChart margin={{ top: 24, right: 28, bottom: 24, left: 28 }}>
-                <ChartTooltip cursor={false} content={<ChartTooltipContent nameKey="name" formatter={(v) => <span className="font-mono tabular-nums text-foreground">{fmt(Number(v))}</span>} />} />
-                <Pie data={expensesData} dataKey="value" nameKey="name" innerRadius={48} outerRadius={70} stroke="transparent" label={PiePercentLabel} labelLine={false}>
-                  <RechartsLabel content={({ viewBox }) => {
-                    if (!viewBox || !("cx" in viewBox) || !("cy" in viewBox)) return null
-                    const cx = viewBox.cx as number
-                    const cy = viewBox.cy as number
-                    return (
-                      <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle">
-                        <tspan className="fill-foreground text-base font-bold">{fmt(totalExpense)}</tspan>
-                        <tspan x={cx} y={cy + 16} className="fill-muted-foreground text-[10px]">Total</tspan>
-                      </text>
-                    )
-                  }} />
-                </Pie>
-              </PieChart>
-            </ChartContainer>
-            <CompactLegend data={expensesData} config={expensesConfig} />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Maiores despesas + saldo mensal (layout 6+6) */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-
-        {/* Top 6 despesas */}
-        <Card className="border-border bg-card backdrop-blur-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Maiores despesas — {monthLabel}</CardTitle>
-          </CardHeader>
-          <CardContent className="px-0">
-            {topExpenses.length === 0 ? (
-              <p className="px-5 py-8 text-center text-sm text-muted-foreground">
-                Nenhuma despesa em {monthLabel}.
-              </p>
-            ) : (
-              <div className="divide-y divide-border/40">
-                {topExpenses.map((exp, idx) => {
-                  const tagName = exp.tagId ? tagById.get(exp.tagId)?.name : null
-                  const maxAmt = toNumber(topExpenses[0]?.amount ?? 0)
-                  const pct = maxAmt > 0 ? (toNumber(exp.amount) / maxAmt) * 100 : 0
+      {/* Mês a mês (ano) */}
+      <SectionCard
+        title={`Mês a mês em ${selectedYearNumber}`}
+        description="Receita, despesa e saldo de cada mês, por trimestre. Clique para ver o mês."
+      >
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(270px,100%),1fr))] gap-4">
+          {([1, 2, 3, 4] as const).map((q) => {
+            const list = monthCards.filter((m) => m.quarter === q)
+            const saldo = list.reduce((s, m) => s + m.income - m.expense, 0)
+            return (
+              <div key={q} className="flex flex-col gap-2">
+                <div className="flex items-baseline justify-between px-0.5 text-xs text-muted-foreground">
+                  <strong className="text-[11px] font-medium uppercase tracking-wider">{q}º trimestre</strong>
+                  <span className="num">Saldo {formatBRL(saldo)}</span>
+                </div>
+                {list.map((m) => {
+                  const mi = Number(m.key.split("-")[1])
+                  const isFuture =
+                    selectedYearNumber > currentYear || (selectedYearNumber === currentYear && mi > currentMonthIndex)
                   return (
-                    <div key={exp.id} className="flex items-center gap-3 px-5 py-3">
-                      <span className="w-4 shrink-0 text-xs tabular-nums text-muted-foreground/50">{idx + 1}</span>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="truncate text-sm text-foreground/90">{exp.item}</span>
-                          <span className={`shrink-0 text-sm font-semibold tabular-nums ${exp.isPaid ? "text-emerald-400" : "text-red-400"}`}>
-                            {fmt(toNumber(exp.amount))}
-                          </span>
-                        </div>
-                        <div className="mt-1.5 flex items-center gap-2">
-                          <div className="h-1 flex-1 overflow-hidden rounded-full bg-border/60">
-                            <div className="h-full rounded-full bg-red-400/50" style={{ width: `${pct}%` }} />
-                          </div>
-                          {tagName && (
-                            <span className="shrink-0 rounded-full border border-border bg-accent/50 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                              {tagName}
-                            </span>
-                          )}
-                          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${exp.isPaid ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
-                            {exp.isPaid ? "Pago" : "Pendente"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+                    <MonthCard
+                      key={m.key}
+                      month={m}
+                      isSelected={mi === selectedMonthIndex}
+                      isFuture={isFuture}
+                      onSelect={() => setMonth(mi)}
+                    />
                   )
                 })}
               </div>
-            )}
-          </CardContent>
-        </Card>
+            )
+          })}
+        </div>
+      </SectionCard>
 
-        {/* Saldo mensal — bar chart */}
-        <Card className="border-border bg-card backdrop-blur-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Saldo mensal — {selectedYear}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={{ saldo: { label: "Saldo" } }} className="aspect-auto h-[220px] w-full">
-              <BarChart data={balanceBarData} margin={{ left: 12, right: 12 }}>
-                <CartesianGrid vertical={false} />
-                <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
-                <ChartTooltip
-                  cursor={false}
-                  content={
-                    <ChartTooltipContent
-                      formatter={(v) => (
-                        <span className={`font-mono font-medium tabular-nums ${Number(v) >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                          {fmt(Number(v))}
-                        </span>
+      {/* Fixas (mês) | Próximas contas (mês) | Maiores despesas (mês) */}
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(320px,100%),1fr))] gap-4">
+        <FixedExpensesSummary month={String(selectedMonthIndex + 1)} year={String(selectedYearNumber)} />
+
+        <SectionCard
+          title="Próximas contas"
+          description={`Pendentes de ${monthName.toLowerCase()}, por vencimento`}
+          action={
+            <Link href="/despesas" className="text-[13px] font-medium text-primary hover:underline">
+              Ver todas
+            </Link>
+          }
+        >
+          {isLoadingData ? (
+            <ChartSkeleton height={200} />
+          ) : upcoming.length === 0 ? (
+            <EmptyState icon={CalendarCheck} title="Tudo em dia" description="Nenhuma conta pendente neste mês." className="py-6" />
+          ) : (
+            <ul className="divide-y">
+              {upcoming.map((e) => {
+                const status = getExpenseStatus(e, now)
+                return (
+                  <li key={e.id} className="flex min-h-14 items-center gap-3 py-3">
+                    <span
+                      className={cn(
+                        "flex h-11 w-10 shrink-0 flex-col items-center justify-center rounded-lg border bg-subtle leading-[1.1]",
+                        status === "late" && "border-expense/50 bg-expense-soft text-expense",
                       )}
-                    />
-                  }
-                />
-                <Bar dataKey="saldo" radius={4}>
-                  {balanceBarData.map((entry, i) => (
-                    <Cell key={`c-${i}`} fill={entry.saldo >= 0 ? "rgba(52,211,153,0.65)" : "rgba(248,113,113,0.65)"} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
+                    >
+                      <b className="num text-[15px]">{dayOf(e.date)}</b>
+                      <small className={cn("text-[10px] uppercase tracking-wide text-muted-foreground", status === "late" && "text-expense")}>
+                        {MONTHS[selectedMonthIndex].short}
+                      </small>
+                    </span>
+                    <div className="min-w-0 flex-1 leading-tight">
+                      <strong className="flex items-center gap-1.5 text-sm font-medium">
+                        <span className="truncate">{e.item}</span>
+                        <InstallmentBadge number={e.installmentNumber} total={e.installmentTotal} />
+                      </strong>
+                      <span className="text-xs text-muted-foreground">
+                        {status === "late" ? "Atrasada" : (e.creditorId && creditorById.get(e.creditorId)) || "Pendente"}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="num text-sm font-semibold">{formatBRL(toNumber(e.amount))}</span>
+                      <button
+                        type="button"
+                        disabled={payingId === e.id}
+                        onClick={() => markPaid(e.id)}
+                        aria-label={`Marcar ${e.item} como paga`}
+                        className="text-xs font-medium text-primary hover:underline disabled:opacity-50"
+                      >
+                        Marcar paga
+                      </button>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </SectionCard>
+
+        <SectionCard title="Maiores despesas" description={monthName}>
+          {isLoadingData ? (
+            <ChartSkeleton height={200} />
+          ) : topExpenses.length === 0 ? (
+            <EmptyState icon={TrendingDown} title={`Sem despesas em ${monthName.toLowerCase()}`} className="py-6" />
+          ) : (
+            <ol className="flex flex-col gap-3">
+              {topExpenses.map((exp, idx) => {
+                const tagName = exp.tagId ? tagById.get(exp.tagId)?.name : null
+                const max = toNumber(topExpenses[0]?.amount ?? 0)
+                const pct = max > 0 ? (toNumber(exp.amount) / max) * 100 : 0
+                return (
+                  <li key={exp.id} className="flex items-center gap-3">
+                    <span className="num w-4 shrink-0 text-xs text-muted-foreground">{idx + 1}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate text-sm">{exp.item}</span>
+                        <span className="num shrink-0 text-sm font-semibold">{formatBRL(toNumber(exp.amount))}</span>
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+                          <div className="h-full rounded-full bg-series-out" style={{ width: `${pct}%` }} />
+                        </div>
+                        {tagName && (
+                          <span className="shrink-0 rounded-full border bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+                            {tagName}
+                          </span>
+                        )}
+                        <StatusBadge status={getExpenseStatus(exp, now)} className="h-5 px-2 text-[11px] max-md:h-5 [&_svg]:size-3" />
+                      </div>
+                    </div>
+                  </li>
+                )
+              })}
+            </ol>
+          )}
+        </SectionCard>
       </div>
 
-      {/* Compras Parceladas */}
       <InstallmentsSection expenses={expenses} tagById={tagById} creditorById={creditorById} />
 
-      {/* Despesas Fixas */}
-      <FixedExpensesSummary
-        month={String(selectedMonthIndex + 1)}
-        year={selectedYear}
-      />
-
-      {/* Credores */}
-      <div className="rounded-2xl border border-border bg-card p-5 backdrop-blur-sm">
-        <CreditorsSection availableYears={availableYears} expenses={expenses} />
-      </div>
-
-      {/* Month cards */}
-      <div>
-        <p className="mb-3 text-sm font-medium text-muted-foreground">Resumo por mês — {selectedYear}</p>
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="h-auto flex-wrap gap-y-1">
-            <TabsTrigger value="all">Todos</TabsTrigger>
-            <TabsTrigger value="q1">1º tri</TabsTrigger>
-            <TabsTrigger value="q2">2º tri</TabsTrigger>
-            <TabsTrigger value="q3">3º tri</TabsTrigger>
-            <TabsTrigger value="q4">4º tri</TabsTrigger>
-          </TabsList>
-          {(["all", "q1", "q2", "q3", "q4"] as const).map((tab) => (
-            <TabsContent key={tab} value={tab} className="pt-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
-                {monthCards
-                  .filter((m) => tab === "all" || `q${m.quarter}` === tab)
-                  .map((month) => (
-                    <MonthCard
-                      key={month.key}
-                      month={month}
-                      hasInstallments={monthsWithInstallments.has(Number(month.key.split("-")[1]))}
-                    />
-                  ))}
-              </div>
-            </TabsContent>
-          ))}
-        </Tabs>
-      </div>
-
-    </div>
+      {/* Credores: mês do período */}
+      <Card className="gap-0 py-0">
+        <CardContent className="p-5 max-md:p-4">
+          <CreditorsSection
+            expenses={expenses}
+            month={String(selectedMonthIndex + 1)}
+            year={String(selectedYearNumber)}
+            onPaidChange={(ids, isPaid) => setExpenses((prev) => prev.map((e) => (ids.includes(e.id) ? { ...e, isPaid } : e)))}
+          />
+        </CardContent>
+      </Card>
+    </PageShell>
   )
 }

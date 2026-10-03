@@ -1,156 +1,108 @@
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 import { toast } from "sonner"
-import { ArrowRight, Wallet } from "lucide-react"
+import { AlertCircle, Loader2, Mail } from "lucide-react"
 
 import { useAuth } from "@/hooks/use-auth"
-import { Spinner } from "@/components/ui/spinner"
+import { AuthHeading, AuthShell } from "@/components/auth/auth-shell"
+import { PasswordField } from "@/components/auth/password-field"
+import { Button } from "@/components/ui/button"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+
+const schema = z.object({
+  email: z.string().trim().min(1, "Informe seu e-mail").email("Informe um e-mail válido"),
+  password: z.string().min(1, "Informe sua senha"),
+})
+type LoginValues = z.infer<typeof schema>
 
 export default function LoginPage() {
   const router = useRouter()
   const { login } = useAuth()
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const form = useForm<LoginValues>({ resolver: zodResolver(schema), defaultValues: { email: "", password: "" } })
+  const { isSubmitting, errors } = form.formState
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setIsLoading(true)
+  async function onSubmit(values: LoginValues) {
     try {
-      await login(email, password)
+      await login(values.email, values.password)
       toast.success("Login realizado com sucesso.")
       router.push("/dashboard")
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Erro ao fazer login."
-      toast.error(message)
-    } finally {
-      setIsLoading(false)
+      form.setError("root", { message: error instanceof Error ? error.message : "Erro ao fazer login." })
     }
   }
 
   return (
-    <div className="flex min-h-screen bg-white">
-      {/* ── Esquerda: painel do formulário ── */}
-      <div className="relative flex w-full flex-col lg:w-[460px] xl:w-[520px] shrink-0">
-        {/* Logo */}
-        <div className="flex items-center gap-2.5 p-8">
-          <Wallet className="size-5 text-red-500" />
-          <span className="text-base font-bold tracking-tight text-zinc-900">Pit Finance</span>
-        </div>
+    <AuthShell>
+      <AuthHeading title="Entrar" description="Acesse sua conta para acompanhar o seu mês." />
 
-        {/* Formulário — centralizado verticalmente */}
-        <div className="flex flex-1 flex-col justify-center px-8 pb-8 lg:px-14">
-          <div className="w-full max-w-sm">
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
-              Bem-vindo de volta
-            </h1>
-            <p className="mt-2 text-sm text-zinc-500">
-              Entre com suas credenciais para acessar o dashboard.
-            </p>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-[18px]" noValidate>
+          {errors.root && (
+            <div role="alert" className="flex items-start gap-2.5 rounded-[10px] border border-expense/40 bg-expense-soft px-3 py-2.5 text-[13px]">
+              <AlertCircle className="mt-0.5 size-4 shrink-0 text-expense" aria-hidden />
+              <span>{errors.root.message}</span>
+            </div>
+          )}
 
-            <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-              <div className="space-y-1.5">
-                <label htmlFor="email" className="block text-sm font-medium text-zinc-700">
-                  Email
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="voce@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900
-                    placeholder:text-zinc-400 outline-none
-                    focus:border-red-500 focus:ring-2 focus:ring-red-500/10
-                    transition-colors"
-                />
-              </div>
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>E-mail</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                    <Input type="email" autoComplete="email" placeholder="voce@email.com" className="h-11 pl-9" {...field} />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-              <div className="space-y-1.5">
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
                 <div className="flex items-center justify-between">
-                  <label htmlFor="password" className="block text-sm font-medium text-zinc-700">
-                    Senha
-                  </label>
-                  <Link
-                    href="/forgot-password"
-                    className="text-xs text-zinc-500 hover:text-red-600 transition-colors"
-                  >
-                    Esqueceu a senha?
+                  <FormLabel>Senha</FormLabel>
+                  <Link href="/forgot-password" className="text-[13px] font-medium text-primary hover:underline">
+                    Esqueci a senha
                   </Link>
                 </div>
-                <input
-                  id="password"
-                  type="password"
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900
-                    placeholder:text-zinc-400 outline-none
-                    focus:border-red-500 focus:ring-2 focus:ring-red-500/10
-                    transition-colors"
-                />
-              </div>
+                <FormControl>
+                  <PasswordField autoComplete="current-password" placeholder="Sua senha" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-6 py-2.5 text-sm font-semibold text-white
-                  hover:bg-red-500 active:bg-red-700
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                  transition-colors duration-150"
-              >
-                {isLoading ? <Spinner className="size-4" /> : null}
-                {isLoading ? "Entrando..." : "Entrar"}
-                {!isLoading && <ArrowRight className="size-4" />}
-              </button>
-            </form>
+          <Button type="submit" size="lg" className="h-11 w-full" disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="animate-spin" />}
+            {isSubmitting ? "Entrando…" : "Entrar"}
+          </Button>
+        </form>
+      </Form>
 
-            <div className="mt-6 flex items-center gap-3">
-              <div className="h-px flex-1 bg-zinc-200" />
-              <span className="text-xs text-zinc-400">ou</span>
-              <div className="h-px flex-1 bg-zinc-200" />
-            </div>
-
-            <p className="mt-6 text-center text-sm text-zinc-500">
-              Ainda não tem conta?{" "}
-              <Link
-                href="/register"
-                className="font-medium text-red-600 hover:text-red-500 transition-colors"
-              >
-                Crie uma agora
-              </Link>
-            </p>
-          </div>
-        </div>
-
-        {/* Rodapé */}
-        <p className="p-8 text-xs text-zinc-400">&copy; {new Date().getFullYear()} Pit Finance</p>
+      <div className="flex items-center gap-3 text-xs text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
+        ou
       </div>
 
-      {/* ── Direita: painel de marca ── */}
-      <div className="relative hidden flex-1 flex-col items-center justify-center overflow-hidden border-l border-zinc-200 bg-gradient-to-br from-red-50 via-rose-50 to-white p-16 lg:flex">
-        <div className="max-w-md text-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-1.5 text-xs text-zinc-500">
-            <div className="size-1.5 rounded-full bg-red-500" />
-            Controle financeiro inteligente
-          </div>
-          <h2 className="text-4xl font-bold leading-tight tracking-tight text-zinc-900">
-            Suas finanças,
-            <br />
-            sob controle
-          </h2>
-          <p className="mt-5 text-base leading-relaxed text-zinc-500">
-            Acompanhe despesas, receitas e credores em um único lugar. Simples, rápido e seguro.
-          </p>
-        </div>
-      </div>
-    </div>
+      <p className="text-center text-sm text-muted-foreground">
+        Ainda não tem conta?{" "}
+        <Link href="/register" className="font-medium text-primary hover:underline">
+          Criar conta
+        </Link>
+      </p>
+    </AuthShell>
   )
 }

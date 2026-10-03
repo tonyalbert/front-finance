@@ -1,44 +1,23 @@
 "use client"
 
 import * as React from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
-import {
-  AlertCircle,
-  Calendar,
-  CheckCircle,
-  CheckCircle2,
-  DollarSign,
-  FileText,
-  Layers,
-  Plus,
-  Search,
-  Tag,
-  TrendingDown,
-  Trash2,
-  UserCircle,
-  X,
-} from "lucide-react"
-import { CreditorsSection } from "@/components/dashboard/creditors-section"
+import { AlertCircle, Check, CheckCircle2, Clock, Inbox, Plus, RefreshCw, Search, Tag, TrendingDown, Trash2, X } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
-import { useSelectedYear } from "@/hooks/use-selected-year"
 import { apiFetch } from "@/lib/api"
 import type { ApiExpense, ApiTag, ApiCreditor } from "@/lib/finance-types"
-import {
-  EMPTY_FILTERS,
-  applyExpenseFilters,
-  hasActiveFilters,
-  type ExpenseFilters,
-} from "@/lib/expense-filters"
-import {
-  MONTHS,
-  formatBRL,
-  formatDateDisplay,
-  formatDateInput,
-  toNumber,
-} from "@/lib/finance-utils"
+import { EMPTY_FILTERS, applyExpenseFilters, hasActiveFilters, type ExpenseFilters } from "@/lib/expense-filters"
+import { MONTHS, formatBRL, getExpenseStatus, isInMonth, toNumber, toUtcIso } from "@/lib/finance-utils"
+import { usePeriod } from "@/components/dashboard/period-provider"
 import { PageShell } from "@/components/dashboard/page-shell"
-import { DatePickerCell } from "@/components/dashboard/date-picker-cell"
-import { SortableHeader } from "@/components/dashboard/sortable-header"
+import { CreditorsSection } from "@/components/dashboard/creditors-section"
+import { TagsSheet } from "@/components/dashboard/tags-sheet"
+import { ExpensesTable, sortExpenses, type SortKey, type SortState } from "@/components/despesas/expenses-table"
+import { EmptyState } from "@/components/finance/empty-state"
+import { ExpenseSheet, type ExpenseFormValues } from "@/components/finance/expense-sheet"
+import { KpiCard, type KpiDelta } from "@/components/finance/kpi-card"
+import { KpiRowSkeleton, TableSkeleton } from "@/components/finance/skeletons"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,754 +29,683 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+type PendingDelete =
+  | { kind: "rows"; ids: string[]; fixedCount: number }
+  | { kind: "group"; groupId: string; count: number }
+
+const NONE = "none"
+const STATUS_LABEL: Record<ExpenseFilters["status"], string> = {
+  all: "Todos",
+  paid: "Pagas",
+  pending: "Pendentes",
+  late: "Atrasadas",
+}
+const TYPE_LABEL: Record<ExpenseFilters["type"], string> = {
+  all: "Todos",
+  fixed: "Fixas",
+  installment: "Parceladas",
+  single: "Avulsas",
+}
 
 export default function DespesasPage() {
-  const { token } = useAuth()
-  const now = React.useMemo(() => new Date(), [])
-  const currentYear = now.getFullYear()
-  const currentMonthIndex = now.getMonth()
+  return (
+    <React.Suspense fallback={null}>
+      <DespesasContent />
+    </React.Suspense>
+  )
+}
 
-  const [selectedYear, setSelectedYear] = useSelectedYear()
-  const selectedYearNumber = Number(selectedYear)
-  const [selectedMonth, setSelectedMonthState] = React.useState<string>(String(currentMonthIndex + 1))
-  const [filters, setFilters] = React.useState<ExpenseFilters>(EMPTY_FILTERS)
+function DespesasContent() {
+  const { token } = useAuth()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { month, year } = usePeriod()
+  const now = React.useMemo(() => new Date(), [])
 
   const [tags, setTags] = React.useState<ApiTag[]>([])
   const [expenses, setExpenses] = React.useState<ApiExpense[]>([])
   const [allCreditors, setAllCreditors] = React.useState<ApiCreditor[]>([])
-  const [isLoadingData, setIsLoadingData] = React.useState(false)
-
-  const [editingCell, setEditingCell] = React.useState<{ id: string; field: "item" | "amount" | "date" | "tagId" | "creditorId" } | null>(null)
-  const [drafts, setDrafts] = React.useState<Record<string, Partial<ApiExpense>>>({})
-  const [savingRowId, setSavingRowId] = React.useState<string | null>(null)
-  const [sortColumn, setSortColumn] = React.useState<"item" | "amount" | "date" | "tagId" | "creditorId" | "isPaid" | null>(null)
-  const [sortDirection, setSortDirection] = React.useState<"asc" | "desc">("desc")
-  const [selectedExpenseIds, setSelectedExpenseIds] = React.useState<Set<string>>(() => new Set())
-
-  const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false)
-  const [addStep, setAddStep] = React.useState<"choose" | "installment">("choose")
-  const [selectedMonthForInstallment, setSelectedMonthForInstallment] = React.useState<number | null>(null)
-  const [installmentMonths, setInstallmentMonths] = React.useState<number>(1)
-  const [installmentItem, setInstallmentItem] = React.useState("")
-  const [installmentAmount, setInstallmentAmount] = React.useState("")
-  const [installmentCreditorId, setInstallmentCreditorId] = React.useState<string>("")
-
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [loadError, setLoadError] = React.useState<string | null>(null)
   const [creditorsRefreshKey, setCreditorsRefreshKey] = React.useState(0)
-  const [pendingDeleteGroupId, setPendingDeleteGroupId] = React.useState<string | null>(null)
-  const [pendingFixedDelete, setPendingFixedDelete] = React.useState<{ ids: string[]; fixedCount: number } | null>(null)
-  const [pendingGroupUpdate, setPendingGroupUpdate] = React.useState<{
-    groupId: string; field: "tagId" | "creditorId"; value: string; expenseId: string; payload: Partial<ApiExpense>
-  } | null>(null)
 
-  // Trocar de mes: o que estava selecionado deixa de estar visivel, entao sai da selecao.
-  function setSelectedMonth(value: string) {
-    setSelectedMonthState(value)
-    setSelectedExpenseIds(new Set())
-  }
+  const [filters, setFilters] = React.useState<ExpenseFilters>(EMPTY_FILTERS)
+  /** Vindo do alerta "Ver atrasadas": ignora o período e lista as atrasadas de todos os meses. */
+  const [allMonths, setAllMonths] = React.useState(false)
+  const [sort, setSort] = React.useState<SortState>({ key: "date", dir: "desc" })
+  const [selected, setSelected] = React.useState<Set<string>>(() => new Set())
 
-  // Alterar filtros: linhas que ficarem ocultas saem da selecao (nunca excluir o que nao esta visivel).
-  function updateFilters(patch: Partial<ExpenseFilters>) {
-    const next = { ...filters, ...patch }
-    setFilters(next)
-    const visible = new Set(applyExpenseFilters(expenseRows, next).map((r) => r.id))
-    setSelectedExpenseIds((prev) => {
-      const kept = new Set([...prev].filter((id) => visible.has(id)))
-      return kept.size === prev.size ? prev : kept
-    })
-  }
+  const [sheetOpen, setSheetOpen] = React.useState(false)
+  const [tagsOpen, setTagsOpen] = React.useState(false)
+  const [editing, setEditing] = React.useState<ApiExpense | null>(null)
+  const [pendingDelete, setPendingDelete] = React.useState<PendingDelete | null>(null)
+  const [isBusy, setIsBusy] = React.useState(false)
 
-  React.useEffect(() => {
+  const load = React.useCallback(async () => {
     if (!token) return
-    let cancelled = false
-    setIsLoadingData(true)
-    Promise.all([
-      apiFetch<ApiTag[]>("/tags", { token }),
-      apiFetch<ApiExpense[]>("/expenses", { token }),
-      apiFetch<ApiCreditor[]>("/creditors/summary", { token }),
-    ])
-      .then(([tagsRes, expensesRes, creditorsRes]) => {
-        if (cancelled) return
-        setTags(tagsRes)
-        setExpenses(expensesRes)
-        setAllCreditors(creditorsRes)
-      })
-      .catch((err) => { if (!cancelled) toast.error(err instanceof Error ? err.message : "Erro ao carregar dados.") })
-      .finally(() => { if (!cancelled) setIsLoadingData(false) })
-    return () => { cancelled = true }
+    setIsLoading(true)
+    setLoadError(null)
+    try {
+      const [t, e, c] = await Promise.all([
+        apiFetch<ApiTag[]>("/tags", { token }),
+        apiFetch<ApiExpense[]>("/expenses", { token }),
+        apiFetch<ApiCreditor[]>("/creditors/summary", { token }),
+      ])
+      setTags(t)
+      setExpenses(e)
+      setAllCreditors(c)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Erro ao carregar dados.")
+    } finally {
+      setIsLoading(false)
+    }
   }, [token])
 
-  const tagById = React.useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags])
+  React.useEffect(() => {
+    void load()
+  }, [load])
+
+  // ?nova=1 (botão + / "Nova despesa") abre o formulário; ?status=atrasado vem do alerta do dashboard.
+  React.useEffect(() => {
+    const nova = searchParams.get("nova")
+    const status = searchParams.get("status")
+    if (nova !== "1" && status !== "atrasado") return
+    if (nova === "1") {
+      setEditing(null)
+      setSheetOpen(true)
+    }
+    if (status === "atrasado") {
+      setFilters({ ...EMPTY_FILTERS, status: "late" })
+      setAllMonths(true)
+      setSelected(new Set())
+    }
+    router.replace("/despesas", { scroll: false })
+  }, [searchParams, router])
+
   const expenseTags = React.useMemo(() => tags.filter((t) => t.type === "EXPENSE"), [tags])
-
-  const availableYears = React.useMemo(() => {
-    const years = new Set<number>()
-    for (const exp of expenses) years.add(new Date(exp.date).getFullYear())
-    years.add(currentYear)
-    return Array.from(years).sort((a, b) => b - a)
-  }, [expenses, currentYear])
-
-  const expenseRows = React.useMemo(() => {
-    return expenses
-      .filter((exp) => {
-        const d = new Date(exp.date)
-        if (d.getFullYear() !== selectedYearNumber) return false
-        return d.getMonth() + 1 === Number(selectedMonth)
-      })
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }, [expenses, selectedYearNumber, selectedMonth])
-
-  const filtersActive = hasActiveFilters(filters)
-  const filteredRows = React.useMemo(() => applyExpenseFilters(expenseRows, filters), [expenseRows, filters])
-  const filteredTotal = React.useMemo(
-    () => filteredRows.reduce((s, r) => s + toNumber(r.amount), 0),
-    [filteredRows],
+  const tagIndexById = React.useMemo(() => new Map(tags.map((t, i) => [t.id, i])), [tags])
+  const tagName = React.useCallback((id: string | null) => (id && tags.find((t) => t.id === id)?.name) || "Sem tag", [tags])
+  const creditorName = React.useCallback(
+    (id: string | null) => (id && allCreditors.find((c) => c.id === id)?.name) || "",
+    [allCreditors],
   )
 
-  const expenseRowsByMonth = React.useMemo(() => {
-    const map = new Map<number, ApiExpense[]>()
-    for (const row of filteredRows) {
-      const mi = new Date(row.date).getMonth()
-      const list = map.get(mi) ?? []
-      list.push(row)
-      map.set(mi, list)
-    }
-    if (sortColumn) {
-      for (const [mi, rows] of map.entries()) {
-        map.set(mi, [...rows].sort((a, b) => {
-          let aVal: string | number | boolean
-          let bVal: string | number | boolean
-          if (sortColumn === "item") { aVal = a.item.toLowerCase(); bVal = b.item.toLowerCase() }
-          else if (sortColumn === "amount") { aVal = toNumber(a.amount); bVal = toNumber(b.amount) }
-          else if (sortColumn === "date") { aVal = new Date(a.date).getTime(); bVal = new Date(b.date).getTime() }
-          else if (sortColumn === "tagId") { aVal = (a.tagId && tagById.get(a.tagId)?.name) || ""; bVal = (b.tagId && tagById.get(b.tagId)?.name) || "" }
-          else if (sortColumn === "creditorId") { aVal = allCreditors.find((c) => c.id === a.creditorId)?.name || ""; bVal = allCreditors.find((c) => c.id === b.creditorId)?.name || "" }
-          else { aVal = a.isPaid ? 1 : 0; bVal = b.isPaid ? 1 : 0 }
-          if (aVal < bVal) return sortDirection === "asc" ? -1 : 1
-          if (aVal > bVal) return sortDirection === "asc" ? 1 : -1
-          return 0
-        }))
-      }
-    }
-    return map
-  }, [filteredRows, sortColumn, sortDirection, tagById, allCreditors])
+  // Despesas do período (mês e ano da topbar)
+  const periodRows = React.useMemo(() => expenses.filter((e) => isInMonth(e.date, year, month)), [expenses, year, month])
+  const baseRows = allMonths ? expenses : periodRows
 
-  function handleSort(column: "item" | "amount" | "date" | "tagId" | "creditorId" | "isPaid") {
-    if (sortColumn === column) setSortDirection(sortDirection === "asc" ? "desc" : "asc")
-    else { setSortColumn(column); setSortDirection("asc") }
+  const filteredRows = React.useMemo(
+    () => sortExpenses(applyExpenseFilters(baseRows, filters, { tagName: (id) => (id ? tagName(id) : ""), creditorName }), sort, now, {
+        tag: tagName,
+        creditor: creditorName,
+      }),
+    [baseRows, filters, sort, now, tagName, creditorName],
+  )
+
+  // Seleção só vale para o que está visível: trocar período ou filtro tira o resto da seleção.
+  const selectedIds = React.useMemo(() => {
+    const visible = new Set(filteredRows.map((r) => r.id))
+    return [...selected].filter((id) => visible.has(id))
+  }, [selected, filteredRows])
+
+  const stats = React.useMemo(() => {
+    const total = periodRows.reduce((s, r) => s + toNumber(r.amount), 0)
+    const paid = periodRows.filter((r) => r.isPaid).reduce((s, r) => s + toNumber(r.amount), 0)
+    const pending = periodRows.filter((r) => !r.isPaid)
+    const late = periodRows.filter((r) => getExpenseStatus(r, now) === "late")
+    const prevMonth = month === 0 ? 11 : month - 1
+    const prevYear = month === 0 ? year - 1 : year
+    const prevTotal = expenses.filter((e) => isInMonth(e.date, prevYear, prevMonth)).reduce((s, e) => s + toNumber(e.amount), 0)
+    return {
+      total,
+      paid,
+      pendingTotal: total - paid,
+      pendingCount: pending.length,
+      lateCount: late.length,
+      prevTotal,
+      prevLabel: MONTHS[prevMonth].label.toLowerCase(),
+    }
+  }, [periodRows, expenses, month, year, now])
+
+  const delta: KpiDelta | undefined = React.useMemo(() => {
+    if (!stats.prevTotal) return undefined
+    const pct = Math.round(((stats.total - stats.prevTotal) / stats.prevTotal) * 1000) / 10
+    return {
+      text: `${pct > 0 ? "+" : ""}${pct.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`,
+      direction: pct > 0 ? "up" : pct < 0 ? "down" : "flat",
+      sentiment: pct === 0 ? "neutral" : pct > 0 ? "bad" : "good",
+    }
+  }, [stats])
+
+  const monthName = MONTHS[month].label
+  const filtersActive = hasActiveFilters(filters) || allMonths
+
+  function patchFilters(patch: Partial<ExpenseFilters>) {
+    setFilters((f) => ({ ...f, ...patch }))
+  }
+  function clearFilters() {
+    setFilters(EMPTY_FILTERS)
+    setAllMonths(false)
+  }
+  function changeSort(key: SortKey) {
+    setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "item" || key === "tag" || key === "creditor" ? "asc" : "desc" }))
   }
 
-  function startEdit(id: string, field: "item" | "amount" | "date" | "tagId" | "creditorId") {
-    setEditingCell({ id, field })
-    setDrafts((prev) => {
-      if (prev[id]) return prev
-      const current = expenses.find((e) => e.id === id)
-      if (!current) return prev
-      return { ...prev, [id]: { item: current.item, amount: current.amount, date: current.date, tagId: current.tagId, creditorId: current.creditorId } }
-    })
+  const chips: { key: string; label: string; value: string; remove: () => void }[] = []
+  if (allMonths) chips.push({ key: "all", label: "Período", value: "todos os meses", remove: () => setAllMonths(false) })
+  if (filters.search.trim()) chips.push({ key: "search", label: "Busca", value: filters.search.trim(), remove: () => patchFilters({ search: "" }) })
+  if (filters.status !== "all") chips.push({ key: "status", label: "Status", value: STATUS_LABEL[filters.status], remove: () => patchFilters({ status: "all" }) })
+  if (filters.type !== "all") chips.push({ key: "type", label: "Tipo", value: TYPE_LABEL[filters.type], remove: () => patchFilters({ type: "all" }) })
+  if (filters.tagId !== "all") chips.push({ key: "tag", label: "Tag", value: filters.tagId === NONE ? "Sem tag" : tagName(filters.tagId), remove: () => patchFilters({ tagId: "all" }) })
+  if (filters.creditorId !== "all")
+    chips.push({ key: "cred", label: "Credor", value: filters.creditorId === NONE ? "Sem credor" : creditorName(filters.creditorId), remove: () => patchFilters({ creditorId: "all" }) })
+
+  function newExpenseDate() {
+    const today = new Date()
+    const isCurrent = today.getFullYear() === year && today.getMonth() === month
+    return toUtcIso(year, month, isCurrent ? today.getDate() : 1)
   }
 
-  async function saveField(id: string, field: "item" | "amount" | "date" | "tagId" | "creditorId", value: string) {
-    const current = expenses.find((e) => e.id === id)
-    if (!current || !token) return
-    const payload: Partial<ApiExpense> = {}
-    if (field === "item") {
-      if (value.trim().length < 2) { toast.error("Item precisa ter pelo menos 2 caracteres."); return }
-      payload.item = value.trim()
-    }
-    if (field === "amount") {
-      const amount = Number(value)
-      if (!Number.isFinite(amount) || amount <= 0) { toast.error("Valor precisa ser maior que zero."); return }
-      payload.amount = amount
-    }
-    if (field === "date") {
-      const d = new Date(value)
-      if (Number.isNaN(d.getTime())) { toast.error("Data inválida."); return }
-      payload.date = d.toISOString()
-    }
-    if (field === "tagId") payload.tagId = value === "none" ? null : value
-    if (field === "creditorId") payload.creditorId = value === "none" ? null : value
+  function openCreate() {
+    setEditing(null)
+    setSheetOpen(true)
+  }
+  function openEdit(row: ApiExpense) {
+    setEditing(row)
+    setSheetOpen(true)
+  }
 
-    setEditingCell(null)
+  const refreshCreditors = () => setCreditorsRefreshKey((k) => k + 1)
 
-    if ((field === "tagId" || field === "creditorId") && current.installmentGroupId) {
-      setPendingGroupUpdate({ groupId: current.installmentGroupId, field, value, expenseId: id, payload })
-      return
-    }
-
-    setSavingRowId(id)
+  async function togglePaid(row: ApiExpense) {
+    if (!token) return
+    const isPaid = !row.isPaid
     try {
-      await apiFetch(`/expenses/${id}`, { method: "PUT", token, body: JSON.stringify(payload) })
-      setExpenses((prev) => prev.map((e) => e.id === id ? { ...e, ...payload } : e))
-      if (field === "creditorId" || field === "amount") setCreditorsRefreshKey((k) => k + 1)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao salvar.")
+      await apiFetch(`/expenses/${row.id}`, { method: "PUT", token, body: JSON.stringify({ isPaid }) })
+      setExpenses((prev) => prev.map((e) => (e.id === row.id ? { ...e, isPaid } : e)))
+      refreshCreditors()
+      toast.success(isPaid ? "Marcada como paga." : "Marcada como pendente.")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao atualizar status.")
+    }
+  }
+
+  /** Troca tag ou credor direto na tabela; em parcelada pode valer para o grupo todo. */
+  async function changeField(row: ApiExpense, field: "tagId" | "creditorId", value: string | null, applyToGroup: boolean) {
+    if (!token) return
+    const patch = { [field]: value } as Partial<ApiExpense>
+    const toGroup = applyToGroup && !!row.installmentGroupId
+    try {
+      await apiFetch(`/expenses/${row.id}`, { method: "PUT", token, body: JSON.stringify(patch) })
+      if (toGroup) await apiFetch(`/expenses/group/${row.installmentGroupId}`, { method: "PUT", token, body: JSON.stringify(patch) })
+      setExpenses((prev) =>
+        prev.map((e) => (e.id === row.id || (toGroup && e.installmentGroupId === row.installmentGroupId) ? { ...e, ...patch } : e)),
+      )
+      if (field === "creditorId") refreshCreditors()
+      toast.success(toGroup ? "Atualizado em todas as parcelas." : field === "tagId" ? "Tag atualizada." : "Credor atualizado.")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar.")
+    }
+  }
+
+  /** Item, valor e vencimento editados direto na tabela. */
+  async function changeBasic(row: ApiExpense, patch: { item?: string; amount?: number; date?: string }) {
+    if (!token) return
+    try {
+      await apiFetch(`/expenses/${row.id}`, { method: "PUT", token, body: JSON.stringify(patch) })
+      setExpenses((prev) => prev.map((e) => (e.id === row.id ? { ...e, ...patch } : e)))
+      if (patch.amount !== undefined || patch.date !== undefined) refreshCreditors()
+      toast.success("Despesa atualizada.")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar.")
+    }
+  }
+
+  async function markSelectedPaid() {
+    if (!token || selectedIds.length === 0) return
+    setIsBusy(true)
+    try {
+      const ids = selectedIds.filter((id) => !expenses.find((e) => e.id === id)?.isPaid)
+      await Promise.all(ids.map((id) => apiFetch(`/expenses/${id}`, { method: "PUT", token, body: JSON.stringify({ isPaid: true }) })))
+      setExpenses((prev) => prev.map((e) => (ids.includes(e.id) ? { ...e, isPaid: true } : e)))
+      setSelected(new Set())
+      refreshCreditors()
+      toast.success(`${ids.length} despesa${ids.length !== 1 ? "s" : ""} marcada${ids.length !== 1 ? "s" : ""} como paga${ids.length !== 1 ? "s" : ""}.`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao atualizar despesas.")
     } finally {
-      setSavingRowId(null)
+      setIsBusy(false)
     }
   }
 
-  async function togglePaid(id: string, isPaid: boolean) {
+  async function duplicate(row: ApiExpense) {
     if (!token) return
     try {
-      await apiFetch(`/expenses/${id}`, { method: "PUT", token, body: JSON.stringify({ isPaid }) })
-      setExpenses((prev) => prev.map((e) => e.id === id ? { ...e, isPaid } : e))
-      setCreditorsRefreshKey((k) => k + 1)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao atualizar status.")
-    }
-  }
-
-  async function handleAddExpense(monthIndex: number) {
-    if (!token) return
-    const monthKey = `${selectedYearNumber}-${monthIndex}`
-    setSavingRowId(monthKey)
-    try {
-      const date = new Date(selectedYearNumber, monthIndex, 1).toISOString()
       const created = await apiFetch<ApiExpense>("/expenses", {
         method: "POST",
         token,
-        body: JSON.stringify({ item: "Nova despesa", amount: 0.01, date, tagId: expenseTags[0]?.id ?? null, isPaid: false }),
-      })
-      setExpenses((prev) => [created, ...prev])
-      setCreditorsRefreshKey((k) => k + 1)
-      startEdit(created.id, "item")
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao adicionar.")
-    } finally {
-      setSavingRowId(null)
-    }
-  }
-
-  // Excluir ocorrencia de despesa fixa pula aquele mes (lapide no back): confirma antes.
-  function requestDeleteSelected(ids: string[]) {
-    const selected = ids.filter((id) => selectedExpenseIds.has(id))
-    if (selected.length === 0) return
-    const fixedCount = expenses.filter((e) => selected.includes(e.id) && e.fixedExpenseCompetence).length
-    if (fixedCount > 0) {
-      setPendingFixedDelete({ ids: selected, fixedCount })
-      return
-    }
-    handleDeleteSelected(selected)
-  }
-
-  async function handleDeleteSelected(ids: string[]) {
-    if (!token) return
-    setSavingRowId("delete")
-    try {
-      const toDelete = ids.filter((id) => selectedExpenseIds.has(id))
-      if (toDelete.length === 0) return
-      await Promise.all(toDelete.map((id) => apiFetch(`/expenses/${id}`, { method: "DELETE", token })))
-      setExpenses((prev) => prev.filter((e) => !toDelete.includes(e.id)))
-      setSelectedExpenseIds((prev) => { const next = new Set(prev); toDelete.forEach((id) => next.delete(id)); return next })
-      setCreditorsRefreshKey((k) => k + 1)
-      toast.success(`${toDelete.length} despesa(s) excluída(s).`)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao excluir.")
-    } finally {
-      setSavingRowId(null)
-    }
-  }
-
-  async function handleAddInstallment(monthIndex: number) {
-    if (!token) return
-    const monthKey = `${selectedYearNumber}-${monthIndex}`
-    setSavingRowId(monthKey)
-    try {
-      const startDate = new Date(selectedYearNumber, monthIndex, 1).toISOString()
-      const result = await apiFetch<{ groupId: string; count: number }>("/expenses/installments", {
-        method: "POST",
-        token,
         body: JSON.stringify({
-          item: installmentItem || "Compra parcelada",
-          amount: Number(installmentAmount) || 1,
-          startDate,
-          totalInstallments: installmentMonths,
-          tagId: expenseTags[0]?.id,
-          creditorId: installmentCreditorId && installmentCreditorId !== "none" ? installmentCreditorId : null,
+          item: row.item,
+          amount: toNumber(row.amount),
+          date: row.date,
+          ...(row.tagId ? { tagId: row.tagId } : {}),
+          ...(row.creditorId ? { creditorId: row.creditorId } : {}),
           isPaid: false,
         }),
       })
-      setIsAddDialogOpen(false)
-      setAddStep("choose")
-      setSelectedMonthForInstallment(null)
-      setInstallmentMonths(1)
-      setInstallmentItem("")
-      setInstallmentAmount("")
-      setInstallmentCreditorId("")
-      toast.success(`${result.count} parcelas criadas!`)
-      const [expensesRes] = await Promise.all([apiFetch<ApiExpense[]>("/expenses", { token })])
-      setExpenses(expensesRes)
-      setCreditorsRefreshKey((k) => k + 1)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao criar parcelas.")
-    } finally {
-      setSavingRowId(null)
+      setExpenses((prev) => [created, ...prev])
+      refreshCreditors()
+      toast.success("Despesa duplicada.")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao duplicar.")
     }
   }
 
-  async function handleDeleteInstallmentGroup(groupId: string) {
-    if (!token) return
-    try {
-      await apiFetch(`/expenses/group/${groupId}`, { method: "DELETE", token })
-      setExpenses((prev) => prev.filter((e) => e.installmentGroupId !== groupId))
-      setCreditorsRefreshKey((k) => k + 1)
-      toast.success("Parcelas excluídas com sucesso!")
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao excluir parcelas.")
-    }
+  // Excluir ocorrência de despesa fixa pula aquele mês (lápide no back): o diálogo avisa.
+  function requestDelete(ids: string[]) {
+    if (ids.length === 0) return
+    const fixedCount = expenses.filter((e) => ids.includes(e.id) && e.fixedExpenseCompetence).length
+    setPendingDelete({ kind: "rows", ids, fixedCount })
+  }
+  function requestDeleteGroup(row: ApiExpense) {
+    if (!row.installmentGroupId) return
+    const count = expenses.filter((e) => e.installmentGroupId === row.installmentGroupId).length
+    setPendingDelete({ kind: "group", groupId: row.installmentGroupId, count })
   }
 
-  async function applyGroupUpdate(applyAll: boolean) {
-    if (!pendingGroupUpdate || !token) return
-    const { groupId, expenseId, payload } = pendingGroupUpdate
-    setSavingRowId(expenseId)
-    setPendingGroupUpdate(null)
+  async function confirmDelete() {
+    if (!token || !pendingDelete) return
+    const target = pendingDelete
+    setPendingDelete(null)
+    setIsBusy(true)
     try {
-      if (applyAll) {
-        await apiFetch(`/expenses/group/${groupId}`, { method: "PUT", token, body: JSON.stringify(payload) })
-        setExpenses((prev) => prev.map((e) => e.installmentGroupId === groupId ? { ...e, ...payload } : e))
+      if (target.kind === "rows") {
+        await Promise.all(target.ids.map((id) => apiFetch(`/expenses/${id}`, { method: "DELETE", token })))
+        setExpenses((prev) => prev.filter((e) => !target.ids.includes(e.id)))
+        setSelected((prev) => new Set([...prev].filter((id) => !target.ids.includes(id))))
+        toast.success(`${target.ids.length} despesa${target.ids.length !== 1 ? "s" : ""} excluída${target.ids.length !== 1 ? "s" : ""}.`)
       } else {
-        await apiFetch(`/expenses/${expenseId}`, { method: "PUT", token, body: JSON.stringify(payload) })
-        setExpenses((prev) => prev.map((e) => e.id === expenseId ? { ...e, ...payload } : e))
+        await apiFetch(`/expenses/group/${target.groupId}`, { method: "DELETE", token })
+        setExpenses((prev) => prev.filter((e) => e.installmentGroupId !== target.groupId))
+        toast.success("Parcelas excluídas.")
       }
-      setCreditorsRefreshKey((k) => k + 1)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao salvar.")
+      refreshCreditors()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao excluir.")
     } finally {
-      setSavingRowId(null)
+      setIsBusy(false)
     }
   }
 
-  const visibleMonths = MONTHS.map((month, monthIndex) => ({
-    month,
-    monthIndex,
-    isVisible: monthIndex + 1 === Number(selectedMonth),
-  })).filter((m) => m.isVisible)
+  async function submitExpense(values: ExpenseFormValues, current: ApiExpense | null) {
+    if (!token) throw new Error("Sessão expirada.")
+    const tagId = values.tagId === NONE ? null : values.tagId
+    const creditorId = values.creditorId === NONE ? null : values.creditorId
+    try {
+      if (!current) {
+        if (values.installments) {
+          const result = await apiFetch<{ groupId: string; count: number }>("/expenses/installments", {
+            method: "POST",
+            token,
+            body: JSON.stringify({
+              item: values.item,
+              amount: values.amount,
+              startDate: values.date,
+              totalInstallments: values.installmentCount,
+              ...(tagId ? { tagId } : {}),
+              ...(creditorId ? { creditorId } : {}),
+              isPaid: values.isPaid,
+            }),
+          })
+          setExpenses(await apiFetch<ApiExpense[]>("/expenses", { token }))
+          toast.success(`${result.count} parcelas criadas.`)
+        } else {
+          const created = await apiFetch<ApiExpense>("/expenses", {
+            method: "POST",
+            token,
+            body: JSON.stringify({
+              item: values.item,
+              amount: values.amount,
+              date: values.date,
+              ...(tagId ? { tagId } : {}),
+              ...(creditorId ? { creditorId } : {}),
+              isPaid: values.isPaid,
+            }),
+          })
+          setExpenses((prev) => [created, ...prev])
+          toast.success("Despesa criada.")
+        }
+      } else {
+        const payload = { item: values.item, amount: values.amount, date: values.date, tagId, creditorId, isPaid: values.isPaid }
+        await apiFetch(`/expenses/${current.id}`, { method: "PUT", token, body: JSON.stringify(payload) })
+        let groupPatch: Partial<ApiExpense> | null = null
+        if (current.installmentGroupId && values.applyToGroup === "all") {
+          groupPatch = { tagId, creditorId }
+          await apiFetch(`/expenses/group/${current.installmentGroupId}`, { method: "PUT", token, body: JSON.stringify(groupPatch) })
+        }
+        setExpenses((prev) =>
+          prev.map((e) => {
+            if (e.id === current.id) return { ...e, ...payload }
+            if (groupPatch && e.installmentGroupId === current.installmentGroupId) return { ...e, ...groupPatch }
+            return e
+          }),
+        )
+        toast.success("Despesa atualizada.")
+      }
+      refreshCreditors()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar a despesa.")
+      throw err
+    }
+  }
 
-  const totalExpensePeriod = React.useMemo(
-    () => expenseRows.reduce((s, r) => s + toNumber(r.amount), 0),
-    [expenseRows],
-  )
-  const totalPago = React.useMemo(
-    () => expenseRows.filter((r) => r.isPaid).reduce((s, r) => s + toNumber(r.amount), 0),
-    [expenseRows],
-  )
-  const totalPendente = totalExpensePeriod - totalPago
+  const selectedCount = selectedIds.length
+  const hasNoExpensesInPeriod = !isLoading && !loadError && periodRows.length === 0 && !allMonths
 
   return (
     <PageShell
       title="Despesas"
-      availableYears={availableYears}
-      selectedYear={selectedYear}
-      onYearChange={setSelectedYear}
+      subtitle={`${periodRows.length} em ${monthName.toLowerCase()} de ${year}`}
       headerActions={
-        <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-          <SelectTrigger className="h-8 w-[130px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {MONTHS.map((m, i) => (
-              <SelectItem key={i} value={String(i + 1)}>{m.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <>
+          <Button variant="outline" onClick={() => setTagsOpen(true)}>
+            <Tag /> Tags
+          </Button>
+          <Button onClick={openCreate}>
+            <Plus /> Nova despesa
+          </Button>
+        </>
       }
     >
-      {isLoadingData && <p className="text-sm text-muted-foreground">Carregando...</p>}
+      {/* Quanto devo e para quem, no mês do período */}
+      <Card className="gap-0 py-0">
+        <CardContent className="p-5 max-md:p-4">
+          <CreditorsSection
+            refreshKey={creditorsRefreshKey}
+            expenses={expenses}
+            month={String(month + 1)}
+            year={String(year)}
+            onPaidChange={(ids, isPaid) => setExpenses((prev) => prev.map((e) => (ids.includes(e.id) ? { ...e, isPaid } : e)))}
+          />
+        </CardContent>
+      </Card>
 
-      {/* Credores */}
-      <div className="rounded-2xl border border-border bg-card p-5 backdrop-blur-sm">
-        <CreditorsSection availableYears={availableYears} refreshKey={creditorsRefreshKey} expenses={expenses} month={selectedMonth} year={selectedYear} />
-      </div>
-
-      {/* Total do período */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 backdrop-blur-sm">
-          <TrendingDown className="size-4 shrink-0 text-red-400" />
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">Total do período</p>
-            <p className="text-base font-bold tabular-nums text-red-400">{formatBRL(totalExpensePeriod)}</p>
-          </div>
-          <span className="ml-auto text-xs text-muted-foreground/50">{expenseRows.length} reg.</span>
-        </div>
-        <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 backdrop-blur-sm">
-          <CheckCircle2 className="size-4 shrink-0 text-emerald-400" />
-          <div>
-            <p className="text-xs text-muted-foreground">Pago</p>
-            <p className="text-base font-bold tabular-nums text-emerald-400">{formatBRL(totalPago)}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 rounded-xl border border-orange-500/15 bg-orange-500/5 px-4 py-3 backdrop-blur-sm">
-          <AlertCircle className="size-4 shrink-0 text-orange-400" />
-          <div>
-            <p className="text-xs text-white/40">Pendente</p>
-            <p className="text-base font-bold tabular-nums text-orange-400">{formatBRL(totalPendente)}</p>
-          </div>
-        </div>
-      </div>
-
-      {visibleMonths.map(({ month, monthIndex }) => {
-        const rows = expenseRowsByMonth.get(monthIndex) ?? []
-        const monthIds = rows.map((r) => r.id)
-        const allSelected = rows.length > 0 && monthIds.every((id) => selectedExpenseIds.has(id))
-        const someSelected = monthIds.some((id) => selectedExpenseIds.has(id))
-        const monthKey = `${selectedYearNumber}-${monthIndex}`
-
-        return (
-          <Card key={month.label} className="mb-4 border-border bg-card backdrop-blur-sm">
-            <CardHeader className="pb-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <CardTitle className="text-sm font-medium">{month.label}</CardTitle>
-                <div className="flex flex-wrap items-center gap-2">
-                  {someSelected && (
-                    <Button size="sm" variant="destructive" onClick={() => requestDeleteSelected(monthIds)} disabled={savingRowId === "delete"}>
-                      {savingRowId === "delete" ? "Excluindo..." : "Excluir selecionadas"}
-                    </Button>
-                  )}
-                  <Button size="sm" variant="outline" onClick={() => { setSelectedMonthForInstallment(monthIndex); setAddStep("choose"); setIsAddDialogOpen(true) }} disabled={savingRowId === monthKey}>
-                    {savingRowId === monthKey ? "Adicionando..." : "Adicionar"}
-                  </Button>
-                </div>
-              </div>
-              {/* Filtros (empilham no mobile) */}
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-                <div className="relative w-full sm:w-56">
-                  <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    className="h-8 pl-8"
-                    placeholder="Buscar item..."
-                    aria-label="Buscar item"
-                    value={filters.search}
-                    onChange={(e) => updateFilters({ search: e.target.value })}
-                  />
-                </div>
-                <Select value={filters.status} onValueChange={(v) => updateFilters({ status: v as ExpenseFilters["status"] })}>
-                  <SelectTrigger className="h-8 w-full sm:w-[130px]" aria-label="Filtrar por status"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
-                    <SelectItem value="paid">Pagas</SelectItem>
-                    <SelectItem value="pending">Pendentes</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={filters.type} onValueChange={(v) => updateFilters({ type: v as ExpenseFilters["type"] })}>
-                  <SelectTrigger className="h-8 w-full sm:w-[140px]" aria-label="Filtrar por tipo"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os tipos</SelectItem>
-                    <SelectItem value="fixed">Fixas</SelectItem>
-                    <SelectItem value="installment">Parceladas</SelectItem>
-                    <SelectItem value="single">Avulsas</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={filters.tagId} onValueChange={(v) => updateFilters({ tagId: v })}>
-                  <SelectTrigger className="h-8 w-full sm:w-[150px]" aria-label="Filtrar por categoria"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas as categorias</SelectItem>
-                    <SelectItem value="none">Sem tag</SelectItem>
-                    {expenseTags.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Select value={filters.creditorId} onValueChange={(v) => updateFilters({ creditorId: v })}>
-                  <SelectTrigger className="h-8 w-full sm:w-[150px]" aria-label="Filtrar por credor"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os credores</SelectItem>
-                    <SelectItem value="none">Sem credor</SelectItem>
-                    {allCreditors.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                {filtersActive && (
-                  <Button size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => updateFilters(EMPTY_FILTERS)}>
-                    <X className="mr-1 size-3.5" />
-                    Limpar filtros
-                  </Button>
+      {isLoading ? (
+        <KpiRowSkeleton count={3} />
+      ) : (
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4">
+          <KpiCard
+            hero
+            label="Total do período"
+            icon={TrendingDown}
+            tone="expense"
+            value={formatBRL(stats.total)}
+            delta={delta}
+            footnote={delta ? `vs. ${stats.prevLabel}` : undefined}
+          />
+          <KpiCard
+            label="Pago"
+            icon={CheckCircle2}
+            tone="income"
+            value={formatBRL(stats.paid)}
+            footnote="Quitado neste mês"
+          />
+          <KpiCard
+            label="Pendente"
+            icon={Clock}
+            tone="warning"
+            value={formatBRL(stats.pendingTotal)}
+            footnote={
+              <>
+                {stats.pendingCount} conta{stats.pendingCount !== 1 ? "s" : ""}
+                {stats.lateCount > 0 && (
+                  <span className="font-medium text-expense">
+                    {" "}
+                    · {stats.lateCount} atrasada{stats.lateCount !== 1 ? "s" : ""}
+                  </span>
                 )}
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {filteredRows.length} de {expenseRows.length} despesas
-                {filtersActive && <> · Filtradas: {filteredRows.length} · Total {formatBRL(filteredTotal)}</>}
-              </p>
-            </CardHeader>
-            <CardContent className="px-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="pl-6">
-                        {rows.length > 0 && (
-                          <Checkbox
-                            checked={allSelected ? true : someSelected ? "indeterminate" : false}
-                            onCheckedChange={(checked) => {
-                              setSelectedExpenseIds((prev) => { const next = new Set(prev); if (checked) monthIds.forEach((id) => next.add(id)); else monthIds.forEach((id) => next.delete(id)); return next })
-                            }}
-                          />
-                        )}
-                      </TableHead>
-                      <SortableHeader column="item" currentSort={sortColumn} sortDirection={sortDirection} onSort={handleSort} icon={FileText}>Item</SortableHeader>
-                      <SortableHeader column="amount" currentSort={sortColumn} sortDirection={sortDirection} onSort={handleSort} icon={DollarSign}>Valor</SortableHeader>
-                      <SortableHeader column="tagId" currentSort={sortColumn} sortDirection={sortDirection} onSort={handleSort} icon={Tag}>Tag</SortableHeader>
-                      <SortableHeader column="creditorId" currentSort={sortColumn} sortDirection={sortDirection} onSort={handleSort} icon={UserCircle}>Credor</SortableHeader>
-                      <SortableHeader column="date" currentSort={sortColumn} sortDirection={sortDirection} onSort={handleSort} icon={Calendar}>Data</SortableHeader>
-                      <SortableHeader column="isPaid" currentSort={sortColumn} sortDirection={sortDirection} onSort={handleSort} icon={CheckCircle} align="right">Status</SortableHeader>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rows.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="px-6 py-6 text-center text-sm text-muted-foreground">
-                          {filtersActive && expenseRows.length > 0
-                            ? "Nenhuma despesa com os filtros aplicados."
-                            : "Nenhuma despesa neste mês. Clique em \"Adicionar\" para criar uma."}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      rows.map((row) => {
-                        const isEditing = (f: "item" | "amount" | "date" | "tagId" | "creditorId") => editingCell?.id === row.id && editingCell.field === f
-                        const draft = drafts[row.id]
-                        const itemValue = (draft?.item ?? row.item) as string
-                        const amountValue = String(draft?.amount ?? row.amount)
-                        const dateValue = formatDateInput((draft?.date ?? row.date) as string)
-                        const tagValue = (draft?.tagId ?? row.tagId) as string | null
-                        const tagLabel = (row.tagId && tagById.get(row.tagId)?.name) || "Sem tag"
+              </>
+            }
+          />
+        </div>
+      )}
 
-                        return (
-                          <TableRow key={row.id}>
-                            <TableCell className="pl-6">
-                              <Checkbox checked={selectedExpenseIds.has(row.id)} onCheckedChange={(checked) => { setSelectedExpenseIds((prev) => { const next = new Set(prev); if (checked) next.add(row.id); else next.delete(row.id); return next }) }} />
-                            </TableCell>
-                            <TableCell onClick={() => startEdit(row.id, "item")}>
-                              <div className="group flex flex-wrap items-center gap-2">
-                                {isEditing("item") ? (
-                                  <Input autoFocus value={itemValue}
-                                    onChange={(e) => setDrafts((p) => ({ ...p, [row.id]: { ...p[row.id], item: e.target.value } }))}
-                                    onBlur={(e) => saveField(row.id, "item", e.target.value)}
-                                    onKeyDown={(e) => { if (e.key === "Enter") saveField(row.id, "item", (e.target as HTMLInputElement).value); if (e.key === "Escape") setEditingCell(null) }}
-                                  />
-                                ) : <span className="cursor-text">{row.item}</span>}
-                                {row.fixedExpenseCompetence && (
-                                  <span className="shrink-0 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary" title="Gerada automaticamente por uma despesa fixa">Fixa</span>
-                                )}
-                                {row.installmentGroupId && (
-                                  <div className="flex items-center gap-2">
-                                    <span className="rounded-full bg-blue-500/15 border border-blue-500/20 px-2 py-0.5 text-xs font-medium text-blue-300">{row.installmentNumber}/{row.installmentTotal}</span>
-                                    <button onClick={(e) => { e.stopPropagation(); if (row.installmentGroupId) setPendingDeleteGroupId(row.installmentGroupId) }} className="rounded-full p-1 hover:bg-red-200 dark:hover:bg-red-900" title="Excluir todas as parcelas">
-                                      <Trash2 className="size-3 text-red-600" />
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell onClick={() => startEdit(row.id, "amount")}>
-                              {isEditing("amount") ? (
-                                <Input autoFocus type="number" step="0.01" value={amountValue}
-                                  onChange={(e) => setDrafts((p) => ({ ...p, [row.id]: { ...p[row.id], amount: e.target.value } }))}
-                                  onBlur={(e) => saveField(row.id, "amount", e.target.value)}
-                                  onKeyDown={(e) => { if (e.key === "Enter") saveField(row.id, "amount", (e.target as HTMLInputElement).value); if (e.key === "Escape") setEditingCell(null) }}
-                                />
-                              ) : <span className="cursor-text">{formatBRL(toNumber(row.amount))}</span>}
-                            </TableCell>
-                            <TableCell onClick={() => startEdit(row.id, "tagId")}>
-                              {isEditing("tagId") ? (
-                                <Select value={tagValue ?? "none"} onValueChange={(v) => saveField(row.id, "tagId", v)}>
-                                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="none">Sem tag</SelectItem>
-                                    {expenseTags.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                                  </SelectContent>
-                                </Select>
-                              ) : <span className="cursor-text">{tagLabel}</span>}
-                            </TableCell>
-                            <TableCell onClick={() => startEdit(row.id, "creditorId")}>
-                              {isEditing("creditorId") ? (
-                                <Select value={(drafts[row.id]?.creditorId ?? row.creditorId) ?? "none"} onValueChange={(v) => saveField(row.id, "creditorId", v)}>
-                                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="none">Sem credor</SelectItem>
-                                    {allCreditors.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                                  </SelectContent>
-                                </Select>
-                              ) : <span className="cursor-text">{row.creditorId ? allCreditors.find((c) => c.id === row.creditorId)?.name : "-"}</span>}
-                            </TableCell>
-                            <TableCell>
-                              <DatePickerCell
-                                value={row.date}
-                                isEditing={isEditing("date")}
-                                onStartEdit={() => startEdit(row.id, "date")}
-                                onSave={(iso) => saveField(row.id, "date", iso)}
-                                onCancel={() => setEditingCell(null)}
-                              />
-                            </TableCell>
-                            <TableCell className="pr-6 text-right">
-                              <button type="button" onClick={() => togglePaid(row.id, !row.isPaid)} className="inline-flex items-center gap-2 text-sm font-medium">
-                                {row.isPaid ? <CheckCircle2 className="size-4 text-emerald-400" /> : <AlertCircle className="size-4 text-red-400" />}
-                                <span>{row.isPaid ? "Pago" : "Pendente"}</span>
-                              </button>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        )
-      })}
+      <Card className="gap-0 overflow-clip py-0" aria-label="Lista de despesas">
+        {/* Busca e filtros */}
+        <div className="grid grid-cols-2 gap-2 p-4 md:flex md:flex-wrap md:items-center md:px-5">
+          <div className="relative col-span-2 md:w-72">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <Input
+              className="h-10 pl-9"
+              placeholder="Buscar item, tag ou credor"
+              aria-label="Buscar despesas"
+              value={filters.search}
+              onChange={(e) => patchFilters({ search: e.target.value })}
+            />
+          </div>
+          <Select value={filters.status} onValueChange={(v) => patchFilters({ status: v as ExpenseFilters["status"] })}>
+            <SelectTrigger className="h-10 w-full md:w-[160px]" aria-label="Filtrar por status">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os status</SelectItem>
+              <SelectItem value="pending">Pendentes</SelectItem>
+              <SelectItem value="late">Atrasadas</SelectItem>
+              <SelectItem value="paid">Pagas</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filters.type} onValueChange={(v) => patchFilters({ type: v as ExpenseFilters["type"] })}>
+            <SelectTrigger className="h-10 w-full md:w-[150px]" aria-label="Filtrar por tipo">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os tipos</SelectItem>
+              <SelectItem value="fixed">Fixas</SelectItem>
+              <SelectItem value="installment">Parceladas</SelectItem>
+              <SelectItem value="single">Avulsas</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filters.tagId} onValueChange={(v) => patchFilters({ tagId: v })}>
+            <SelectTrigger className="h-10 w-full md:w-[170px]" aria-label="Filtrar por tag">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as tags</SelectItem>
+              <SelectItem value={NONE}>Sem tag</SelectItem>
+              {expenseTags.map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filters.creditorId} onValueChange={(v) => patchFilters({ creditorId: v })}>
+            <SelectTrigger className="h-10 w-full md:w-[170px]" aria-label="Filtrar por credor">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os credores</SelectItem>
+              <SelectItem value={NONE}>Sem credor</SelectItem>
+              {allCreditors.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="num ml-auto hidden text-[13px] text-muted-foreground md:inline">
+            {filteredRows.length} de {baseRows.length}
+          </span>
+          <Button variant="outline" size="icon" className="hidden size-10 md:inline-flex" onClick={openCreate} aria-label="Nova despesa" title="Nova despesa">
+            <Plus />
+          </Button>
+        </div>
 
-      {/* Group update dialog */}
-      <AlertDialog open={!!pendingGroupUpdate} onOpenChange={(open) => { if (!open) setPendingGroupUpdate(null) }}>
+        {/* Chips de filtros ativos */}
+        {chips.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 px-4 pb-3 md:px-5" aria-label="Filtros ativos">
+            {chips.map((c) => (
+              <span key={c.key} className="inline-flex h-7 items-center gap-1.5 rounded-full border bg-muted pl-2.5 pr-1 text-xs">
+                <span className="text-muted-foreground">{c.label}:</span>
+                <span className="font-medium">{c.value}</span>
+                <button
+                  type="button"
+                  onClick={c.remove}
+                  aria-label={`Remover filtro ${c.label}`}
+                  className="grid size-5 place-items-center rounded-full text-muted-foreground hover:bg-background hover:text-foreground"
+                >
+                  <X className="size-3" />
+                </button>
+              </span>
+            ))}
+            <button type="button" onClick={clearFilters} className="text-xs font-medium text-primary hover:underline">
+              Limpar filtros
+            </button>
+          </div>
+        )}
+
+        {/* Ações em massa */}
+        {selectedCount > 0 && (
+          <div role="region" aria-label="Ações em massa" className="flex flex-wrap items-center gap-2 border-y bg-primary-soft px-4 py-2.5 md:px-5">
+            <strong className="num text-sm">
+              {selectedCount} selecionada{selectedCount !== 1 ? "s" : ""}
+            </strong>
+            <span className="flex-1" />
+            <Button size="sm" variant="outline" onClick={markSelectedPaid} disabled={isBusy}>
+              <Check /> Marcar como pago
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => requestDelete(selectedIds)} disabled={isBusy}>
+              <Trash2 /> Excluir
+            </Button>
+            <Button size="icon" variant="ghost" className="size-8" onClick={() => setSelected(new Set())} aria-label="Limpar seleção">
+              <X />
+            </Button>
+          </div>
+        )}
+
+        {/* Conteúdo */}
+        {isLoading ? (
+          <TableSkeleton rows={7} cols={5} />
+        ) : loadError ? (
+          <div className="px-4 pb-6 md:px-5">
+            <div role="alert" className="flex items-start gap-3 rounded-[10px] border border-expense/40 bg-expense-soft px-3.5 py-3">
+              <AlertCircle className="mt-0.5 size-5 shrink-0 text-expense" aria-hidden />
+              <div className="min-w-0 flex-1 text-[13px]">
+                <strong className="block text-sm font-semibold">Não foi possível carregar as despesas</strong>
+                <span className="text-muted-foreground">{loadError} Seus lançamentos continuam salvos.</span>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => void load()}>
+                <RefreshCw /> Tentar novamente
+              </Button>
+            </div>
+          </div>
+        ) : hasNoExpensesInPeriod ? (
+          <EmptyState
+            className="border-t"
+            icon={Inbox}
+            title={`Nenhuma despesa em ${monthName.toLowerCase()}`}
+            description="Registre a primeira despesa do mês. As despesas fixas ativas são geradas automaticamente."
+            action={
+              <Button onClick={openCreate}>
+                <Plus /> Nova despesa
+              </Button>
+            }
+          />
+        ) : filteredRows.length === 0 ? (
+          <EmptyState
+            className="border-t"
+            icon={Search}
+            title="Nenhuma despesa encontrada"
+            description="Nenhum lançamento corresponde à busca e aos filtros atuais."
+            action={
+              filtersActive ? (
+                <Button variant="outline" onClick={clearFilters}>
+                  Limpar filtros
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <div className="border-t">
+            <ExpensesTable
+              rows={filteredRows}
+              now={now}
+              tagName={tagName}
+              tagIndex={(id) => (id ? (tagIndexById.get(id) ?? 0) : 0)}
+              creditorName={creditorName}
+              tagOptions={expenseTags}
+              creditorOptions={allCreditors}
+              onChangeBasic={(row, patch) => void changeBasic(row, patch)}
+              onChangeTag={(row, id, all) => void changeField(row, "tagId", id, all)}
+              onChangeCreditor={(row, id, all) => void changeField(row, "creditorId", id, all)}
+              selected={new Set(selectedIds)}
+              onSelectedChange={setSelected}
+              sort={sort}
+              onSortChange={changeSort}
+              onTogglePaid={togglePaid}
+              onEdit={openEdit}
+              onDuplicate={duplicate}
+              onDelete={(row) => requestDelete([row.id])}
+              onDeleteGroup={requestDeleteGroup}
+              onAdd={openCreate}
+            />
+          </div>
+        )}
+      </Card>
+
+      <TagsSheet open={tagsOpen} onOpenChange={setTagsOpen} defaultType="EXPENSE" onTagsChange={setTags} />
+
+      <ExpenseSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        expense={editing}
+        defaultDate={newExpenseDate()}
+        tags={expenseTags}
+        creditors={allCreditors}
+        onSubmit={submitExpense}
+      />
+
+      {/* Confirmação: só para excluir */}
+      <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Alterar {pendingGroupUpdate?.field === "tagId" ? "tag" : "credor"}</AlertDialogTitle>
-            <AlertDialogDescription>Deseja aplicar essa alteração apenas nesta parcela ou em todas as parcelas do grupo?</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => applyGroupUpdate(false)}>Só esta parcela</AlertDialogAction>
-            <AlertDialogAction onClick={() => applyGroupUpdate(true)}>Todas as parcelas</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Add expense dialog — unified (choose type or fill installment form) */}
-      <Dialog open={isAddDialogOpen} onOpenChange={(open) => { if (!open) { setIsAddDialogOpen(false); setAddStep("choose"); setInstallmentMonths(1); setInstallmentItem(""); setInstallmentAmount(""); setInstallmentCreditorId("") } }}>
-        <DialogContent className="sm:max-w-md">
-          {addStep === "choose" ? (
-            <>
-              <DialogHeader>
-                <DialogTitle>Adicionar despesa</DialogTitle>
-              </DialogHeader>
-              <div className="mt-2 grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => {
-                    setIsAddDialogOpen(false)
-                    setAddStep("choose")
-                    if (selectedMonthForInstallment !== null) handleAddExpense(selectedMonthForInstallment)
-                  }}
-                  className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-accent/50"
-                >
-                  <div className="flex size-9 items-center justify-center rounded-lg border border-border bg-background">
-                    <Plus className="size-4 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Despesa simples</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">Adicione e edite direto na tabela</p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setAddStep("installment")}
-                  className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-accent/50"
-                >
-                  <div className="flex size-9 items-center justify-center rounded-lg border border-border bg-background">
-                    <Layers className="size-4 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium">Compra parcelada</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">Divida em múltiplas parcelas mensais</p>
-                  </div>
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <DialogHeader>
-                <DialogTitle>Compra Parcelada</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-medium">Nome da Compra</label>
-                  <Input placeholder="Ex: TV 55 polegadas" value={installmentItem} onChange={(e) => setInstallmentItem(e.target.value)} />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium">Valor de Cada Parcela</label>
-                  <Input type="number" min="0.01" step="0.01" placeholder="Ex: 150.00" value={installmentAmount} onChange={(e) => setInstallmentAmount(e.target.value)} />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium">Credor (Opcional)</label>
-                  <Select value={installmentCreditorId} onValueChange={setInstallmentCreditorId}>
-                    <SelectTrigger><SelectValue placeholder="Selecione um credor" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sem credor</SelectItem>
-                      {allCreditors.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium">Número de Parcelas</label>
-                  <Input type="number" min="1" max="60" value={installmentMonths} onChange={(e) => setInstallmentMonths(Number(e.target.value))} />
-                </div>
-                <div className="rounded-lg bg-muted p-3 text-sm">
-                  <p className="font-medium">Resumo:</p>
-                  <p className="text-muted-foreground">{installmentMonths}x de {installmentAmount ? formatBRL(Number(installmentAmount)) : "R$ 0,00"}</p>
-                  <p className="text-muted-foreground">Total: {installmentAmount && installmentMonths ? formatBRL(Number(installmentAmount) * installmentMonths) : "R$ 0,00"}</p>
-                  {selectedMonthForInstallment !== null && <p className="text-muted-foreground">Começando em {MONTHS[selectedMonthForInstallment].label} de {selectedYearNumber}</p>}
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => setAddStep("choose")} className="text-muted-foreground">
-                    Voltar
-                  </Button>
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => { setIsAddDialogOpen(false); setAddStep("choose"); setInstallmentMonths(1); setInstallmentItem(""); setInstallmentAmount("") }}>Cancelar</Button>
-                    <Button onClick={() => { if (selectedMonthForInstallment !== null) handleAddInstallment(selectedMonthForInstallment) }} disabled={!installmentItem || !installmentAmount || installmentMonths < 1}>Criar Parcelas</Button>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete group dialog */}
-      <AlertDialog open={!!pendingFixedDelete} onOpenChange={(open) => { if (!open) setPendingFixedDelete(null) }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir despesa fixa deste mês?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {pendingDelete?.kind === "group"
+                ? "Excluir todas as parcelas?"
+                : pendingDelete && pendingDelete.fixedCount > 0
+                  ? "Excluir despesa fixa deste mês?"
+                  : pendingDelete && pendingDelete.ids.length > 1
+                    ? `Excluir ${pendingDelete.ids.length} despesas?`
+                    : "Excluir despesa?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingFixedDelete && pendingFixedDelete.fixedCount > 1
-                ? `${pendingFixedDelete.fixedCount} despesas selecionadas são geradas por despesas fixas: esses meses serão pulados e não serão recriados.`
-                : "Esta despesa é gerada por uma despesa fixa: este mês será pulado e ela não será recriada."}{" "}
-              A despesa fixa continua valendo nos demais meses.
+              {pendingDelete?.kind === "group" ? (
+                `Remove as ${pendingDelete.count} parcelas deste grupo permanentemente. Não é possível desfazer.`
+              ) : pendingDelete && pendingDelete.fixedCount > 0 ? (
+                <>
+                  {pendingDelete.fixedCount > 1
+                    ? `${pendingDelete.fixedCount} despesas selecionadas são geradas por despesas fixas: esses meses serão pulados e não serão recriados.`
+                    : "Esta despesa é gerada por uma despesa fixa: este mês será pulado e ela não será recriada."}{" "}
+                  A despesa fixa continua valendo nos demais meses.
+                </>
+              ) : (
+                "Esta ação não pode ser desfeita."
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { if (pendingFixedDelete) { handleDeleteSelected(pendingFixedDelete.ids); setPendingFixedDelete(null) } }}>Excluir e pular o mês</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={!!pendingDeleteGroupId} onOpenChange={(open) => { if (!open) setPendingDeleteGroupId(null) }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir todas as parcelas?</AlertDialogTitle>
-            <AlertDialogDescription>Essa ação irá remover todas as parcelas deste grupo permanentemente. Não é possível desfazer.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { if (pendingDeleteGroupId) { handleDeleteInstallmentGroup(pendingDeleteGroupId); setPendingDeleteGroupId(null) } }}>Excluir todas</AlertDialogAction>
+            <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={() => void confirmDelete()}>
+              {pendingDelete?.kind === "group"
+                ? "Excluir todas"
+                : pendingDelete && pendingDelete.fixedCount > 0
+                  ? "Excluir e pular o mês"
+                  : "Excluir"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

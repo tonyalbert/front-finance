@@ -2,12 +2,13 @@
 
 import * as React from "react"
 import { toast } from "sonner"
-import { AlertCircle, CheckCircle2, Mail, Phone, Plus, Trash2, XCircle } from "lucide-react"
+import { AlertCircle, CheckCircle2, Mail, Phone, Plus, Trash2 } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { apiFetch } from "@/lib/api"
 import type { ApiCreditor, ApiCreditorDetails, ApiExpense } from "@/lib/finance-types"
-import { MONTHS, formatBRL, toNumber } from "@/lib/finance-utils"
+import { MONTHS, formatBRL, isInMonth, toNumber } from "@/lib/finance-utils"
 import { Button } from "@/components/ui/button"
+import { CreditorDetailsDialog } from "./creditor-details-dialog"
 import {
   Dialog,
   DialogContent,
@@ -23,14 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 
 export function CreditorsSection({
   availableYears,
@@ -38,12 +31,15 @@ export function CreditorsSection({
   expenses: allExpenses,
   month: monthProp,
   year: yearProp,
+  onPaidChange,
 }: {
   availableYears?: number[]
   refreshKey?: number
   expenses?: ApiExpense[]
   month?: string
   year?: string
+  /** Avisa a página quando o status de despesas muda pelo diálogo */
+  onPaidChange?: (ids: string[], isPaid: boolean) => void
 }) {
   const { token } = useAuth()
   const now = React.useMemo(() => new Date(), [])
@@ -64,6 +60,7 @@ export function CreditorsSection({
   const [details, setDetails] = React.useState<ApiCreditorDetails | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = React.useState(false)
   const [isLoadingDetails, setIsLoadingDetails] = React.useState(false)
+  const [payingIds, setPayingIds] = React.useState<Set<string>>(() => new Set())
 
   const years = availableYears ?? [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1]
 
@@ -71,8 +68,7 @@ export function CreditorsSection({
     if (!allExpenses) return null
     const filtered = allExpenses.filter((e) => {
       if (e.creditorId) return false
-      const d = new Date(e.date)
-      return d.getMonth() + 1 === Number(month) && d.getFullYear() === Number(year)
+      return isInMonth(e.date, Number(year), Number(month) - 1)
     })
     if (filtered.length === 0) return null
     const totalAmount = filtered.reduce((s, e) => s + toNumber(e.amount), 0)
@@ -116,6 +112,23 @@ export function CreditorsSection({
     } catch (e) { toast.error(e instanceof Error ? e.message : "Erro.") }
   }
 
+  /** Marca contas do credor como pagas/pendentes direto do diálogo. */
+  async function setPaid(ids: string[], isPaid: boolean) {
+    if (!token || ids.length === 0) return
+    setPayingIds((prev) => new Set([...prev, ...ids]))
+    try {
+      await Promise.all(ids.map((id) => apiFetch(`/expenses/${id}`, { method: "PUT", token, body: JSON.stringify({ isPaid }) })))
+      setDetails((prev) => (prev ? { ...prev, expenses: prev.expenses.map((e) => (ids.includes(e.id) ? { ...e, isPaid } : e)) } : prev))
+      onPaidChange?.(ids, isPaid)
+      await fetchCreditors(month, year)
+      toast.success(ids.length > 1 ? `${ids.length} contas marcadas como pagas.` : isPaid ? "Marcada como paga." : "Marcada como pendente.")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao atualizar o status.")
+    } finally {
+      setPayingIds((prev) => new Set([...prev].filter((id) => !ids.includes(id))))
+    }
+  }
+
   async function handleOpen(id: string) {
     if (!token) return
     setIsLoadingDetails(true)
@@ -123,8 +136,7 @@ export function CreditorsSection({
     try {
       const d = await apiFetch<ApiCreditorDetails>(`/creditors/${id}?month=${month}&year=${year}`, { token })
       const filtered = d.expenses.filter((e) => {
-        const date = new Date(e.date)
-        return date.getMonth() + 1 === Number(month) && date.getFullYear() === Number(year)
+        return isInMonth(e.date, Number(year), Number(month) - 1)
       })
       setDetails({ ...d, expenses: filtered })
     } catch (e) { toast.error(e instanceof Error ? e.message : "Erro."); setIsDetailsOpen(false) }
@@ -141,7 +153,7 @@ export function CreditorsSection({
         <div className="flex items-center gap-3">
           <span className="text-sm font-semibold text-muted-foreground">Credores</span>
           {pendingCount > 0 && (
-            <span className="rounded-full bg-orange-500/15 border border-orange-500/20 px-2 py-0.5 text-xs text-orange-400">
+            <span className="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning">
               {pendingCount} pendente{pendingCount !== 1 ? "s" : ""} · {formatBRL(totalPendente)}
             </span>
           )}
@@ -206,7 +218,7 @@ export function CreditorsSection({
                   onClick={() => handleOpen(c.id)}
                 >
                   {/* Avatar */}
-                  <div className={`flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${c.isPaidOff ? "bg-emerald-500/15 text-emerald-400" : "bg-red-500/15 text-red-400"}`}>
+                  <div className={`flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-bold ${c.isPaidOff ? "bg-income-soft text-income" : "bg-expense-soft text-expense"}`}>
                     {initials}
                   </div>
 
@@ -225,7 +237,7 @@ export function CreditorsSection({
                     <div className="mt-1.5 flex items-center gap-2">
                       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-border">
                         <div
-                          className={`h-full rounded-full transition-all ${c.isPaidOff ? "bg-emerald-400/70" : "bg-red-400/60"}`}
+                          className={`h-full rounded-full transition-all ${c.isPaidOff ? "bg-income" : "bg-expense"}`}
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -235,7 +247,7 @@ export function CreditorsSection({
 
                   {/* Amounts */}
                   <div className="shrink-0 text-right">
-                    <p className={`text-sm font-semibold tabular-nums ${c.isPaidOff ? "text-emerald-400" : "text-red-400"}`}>
+                    <p className={`text-sm font-semibold tabular-nums ${c.isPaidOff ? "text-income" : "text-expense"}`}>
                       {c.isPaidOff ? "Quitado" : formatBRL(c.unpaidAmount)}
                     </p>
                     <p className="text-xs tabular-nums text-muted-foreground">de {formatBRL(c.totalAmount)}</p>
@@ -244,13 +256,13 @@ export function CreditorsSection({
                   {/* Status icon + delete */}
                   <div className="flex shrink-0 items-center gap-1">
                     {c.isPaidOff
-                      ? <CheckCircle2 className="size-4 text-emerald-400" />
-                      : <AlertCircle className="size-4 text-orange-400" />}
+                      ? <CheckCircle2 className="size-4 text-income" />
+                      : <AlertCircle className="size-4 text-warning" />}
                     <button
                       onClick={(e) => handleDelete(c.id, e)}
                       className="ml-1 rounded p-0.5 opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100"
                     >
-                      <Trash2 className="size-3.5 text-muted-foreground hover:text-red-400" />
+                      <Trash2 className="size-3.5 text-muted-foreground hover:text-expense" />
                     </button>
                   </div>
                 </div>
@@ -271,21 +283,21 @@ export function CreditorsSection({
                   <div className="mt-1.5 flex items-center gap-2">
                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-border">
                       <div
-                        className={`h-full rounded-full transition-all ${noCreditorStats.isPaidOff ? "bg-emerald-400/70" : "bg-muted-foreground/40"}`}
+                        className={`h-full rounded-full transition-all ${noCreditorStats.isPaidOff ? "bg-income" : "bg-muted-foreground/40"}`}
                         style={{ width: noCreditorStats.totalAmount > 0 ? `${Math.round(((noCreditorStats.totalAmount - noCreditorStats.unpaidAmount) / noCreditorStats.totalAmount) * 100)}%` : "0%" }}
                       />
                     </div>
                   </div>
                 </div>
                 <div className="shrink-0 text-right">
-                  <p className={`text-sm font-semibold tabular-nums ${noCreditorStats.isPaidOff ? "text-emerald-400" : "text-muted-foreground"}`}>
+                  <p className={`text-sm font-semibold tabular-nums ${noCreditorStats.isPaidOff ? "text-income" : "text-muted-foreground"}`}>
                     {noCreditorStats.isPaidOff ? "Quitado" : formatBRL(noCreditorStats.unpaidAmount)}
                   </p>
                   <p className="text-xs tabular-nums text-muted-foreground">de {formatBRL(noCreditorStats.totalAmount)}</p>
                 </div>
                 <div className="flex shrink-0 items-center">
                   {noCreditorStats.isPaidOff
-                    ? <CheckCircle2 className="size-4 text-emerald-400" />
+                    ? <CheckCircle2 className="size-4 text-income" />
                     : <AlertCircle className="size-4 text-muted-foreground/60" />}
                 </div>
               </div>
@@ -294,42 +306,18 @@ export function CreditorsSection({
         </div>
       )}
 
-      {/* Details dialog */}
-      <Dialog open={isDetailsOpen} onOpenChange={(o) => { setIsDetailsOpen(o); if (!o) setDetails(null) }}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>{details?.name ?? "Carregando..."}</DialogTitle></DialogHeader>
-          {isLoadingDetails ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">Carregando...</p>
-          ) : details?.expenses.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma conta associada.</p>
-          ) : (
-            <div className="max-h-[60vh] overflow-y-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead className="text-right">Valor</TableHead>
-                    <TableHead className="text-center">Pago</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {details?.expenses.map((exp: ApiExpense) => (
-                    <TableRow key={exp.id}>
-                      <TableCell className="text-sm">{exp.item}</TableCell>
-                      <TableCell className="text-sm tabular-nums text-muted-foreground">{new Date(exp.date).toLocaleDateString("pt-BR")}</TableCell>
-                      <TableCell className="text-right text-sm tabular-nums">{formatBRL(Number(exp.amount))}</TableCell>
-                      <TableCell className="text-center">
-                        {exp.isPaid ? <CheckCircle2 className="mx-auto size-4 text-emerald-500" /> : <XCircle className="mx-auto size-4 text-red-400" />}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <CreditorDetailsDialog
+        open={isDetailsOpen}
+        onOpenChange={(o) => {
+          setIsDetailsOpen(o)
+          if (!o) setDetails(null)
+        }}
+        details={details}
+        isLoading={isLoadingDetails}
+        periodLabel={`${MONTHS[Number(month) - 1]?.label.toLowerCase() ?? ""} de ${year}`}
+        payingIds={payingIds}
+        onSetPaid={setPaid}
+      />
     </div>
   )
 }

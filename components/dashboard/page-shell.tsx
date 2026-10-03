@@ -1,46 +1,34 @@
 "use client"
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
+/**
+ * Cabeçalho padrão das páginas. O ano/mês agora vêm do período global da topbar,
+ * por isso as props de ano continuam aceitas (compatibilidade) mas não renderizam nada.
+ */
 export function PageShell({
   title,
-  availableYears,
-  selectedYear,
-  onYearChange,
+  subtitle,
   headerActions,
   children,
 }: {
   title: string
+  subtitle?: string
+  /** @deprecated o período é controlado pela topbar */
   availableYears?: number[]
+  /** @deprecated o período é controlado pela topbar */
   selectedYear?: string
+  /** @deprecated o período é controlado pela topbar */
   onYearChange?: (year: string) => void
   headerActions?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
-    <div className="flex flex-col gap-6 px-4 py-6 pb-24 sm:px-6 sm:py-8 md:pb-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-xl font-semibold text-foreground sm:text-2xl">
-          <span className="size-2 shrink-0 rounded-full bg-primary" />
-          {title}
+    <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-6 px-4 pb-28 pt-6 sm:px-6 md:px-8 md:pb-14 md:pt-7">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold leading-tight tracking-tight">{title}</h1>
+          {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {availableYears && availableYears.length > 0 && selectedYear && onYearChange && (
-            <Select value={selectedYear} onValueChange={onYearChange}>
-              <SelectTrigger className="w-[100px] border-border bg-background text-foreground">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {availableYears.map((y) => (
-                  <SelectItem key={y} value={String(y)}>
-                    {y}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          {headerActions}
-        </div>
+        {headerActions && <div className="flex flex-wrap items-center gap-2">{headerActions}</div>}
       </div>
       {children}
     </div>

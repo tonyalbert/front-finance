@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Pit Finance — Landing page</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./pf.css">
+<link rel="stylesheet" href="./landing.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>body{margin:0} html{scroll-behavior:smooth}</style>
+</helmet>
+<div class="pf pf-root lp" data-theme="{{theme}}">
+
+<header class="lp-nav">
+  <div class="lp-wrap lp-nav-in">
+    <a href="#topo" class="brand" style="margin: 0; padding: 0; color: var(--foreground); text-decoration: none"><svg class="lp-logo" viewBox="0 0 96 96" aria-hidden="true"><rect class="f" x="29" y="6" width="14" height="42" rx="7" transform="rotate(-14 36 46)"></rect><rect class="f" x="49" y="6" width="14" height="42" rx="7" transform="rotate(14 56 46)"></rect><rect class="sep" x="10" y="40" width="76" height="50" rx="13"></rect><rect class="cut" x="56" y="56" width="32" height="18" rx="9"></rect><circle class="f" cx="66" cy="65" r="3.6"></circle></svg>Pit Finance</a>
+    <nav class="lp-links" aria-label="Seções"><a href="#recursos">Recursos</a><a href="#como-funciona">Como funciona</a><a href="#preco">Preço</a><a href="#perguntas">Perguntas</a></nav>
+    <span class="spacer"></span>
+    <a class="btn btn-ghost btn-sm" href="Auth.dc.html">Entrar</a>
+    <a class="btn btn-primary btn-sm" href="AuthCadastro.dc.html">Criar conta<span class="hide-sm">&nbsp;grátis</span></a>
+  </div>
+</header>
+
+<main id="topo">
+  <section class="pf lp-hero2" data-theme="dark" aria-labelledby="hero-title">
+    <div class="lp-wrap">
+      <div class="lp-hero2-top">
+        <div>
+          <span class="lp-eyebrow"><span class="dot"></span>7 dias grátis · sem cartão de crédito</span>
+          <h1 class="lp-h1 lp-h1-xl" id="hero-title">Seu mês inteiro,<br><em>um pulo à frente.</em></h1>
+        </div>
+        <div class="lp-hero2-side">
+          <p class="lp-sub">Veja hoje como vai estar seu saldo no dia 31. O Pit Finance desenha o mês com suas receitas, contas fixas e parcelas, e mostra cada vencimento antes de ele chegar.</p>
+          <div class="lp-ctas">
+            <a class="btn btn-primary" href="AuthCadastro.dc.html">Criar conta grátis<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"></path></svg></a>
+            <a class="btn btn-outline" href="#como-funciona">Ver como funciona</a>
+          </div>
+          <p class="lp-note">Depois do teste, R$ 19,99 por mês.</p>
+        </div>
+      </div>
+
+      <div class="lp-month" role="group" aria-label="Simulação de outubro no Pit Finance">
+        <div class="lp-month-head">
+          <div class="lp-readout" aria-live="polite">
+            <span class="t-sm t-muted">Saldo no dia {{m.dia}} de outubro</span>
+            <strong class="num lp-saldo">{{m.saldo}}</strong>
+            <span class="t-sm num {{m.deltaCls}}">{{m.deltaTxt}}</span>
+          </div>
+          <div class="lp-today">
+            <span class="t-xs t-muted">{{m.eventsLabel}}</span>
+            <sc-for list="{{m.events}}" as="e" hint-placeholder-count="2">
+              <span class="lp-ev {{e.cls}}"><span>{{e.nome}}</span><b class="num">{{e.valor}}</b></span>
+            </sc-for>
+            <sc-if value="{{m.noEvents}}" hint-placeholder-val="{{ false }}"><span class="lp-ev"><span class="t-muted">Nenhuma conta neste dia</span></span></sc-if>
+          </div>
+        </div>
+        <div class="lp-month-scroll">
+          <svg class="lp-month-svg {{m.svgCls}}" viewBox="0 0 1000 250" aria-hidden="true">
+            <line class="g" x1="40" y1="25.5" x2="960" y2="25.5"></line>
+            <line class="g" x1="40" y1="117.75" x2="960" y2="117.75"></line>
+            <line class="g" x1="40" y1="210" x2="960" y2="210"></line>
+            <text class="ax ax-y" x="32" y="29.5">R$ 9 mil</text>
+            <text class="ax ax-y" x="32" y="121.75">R$ 4,5 mil</text>
+            <text class="ax ax-y" x="32" y="214">0</text>
+            <path class="line-f" d="{{m.path}}"></path>
+            <path class="area" d="{{m.area}}"></path>
+            <path class="line-p" d="{{m.pathPast}}"></path>
+            <line class="today" x1="{{m.rx}}" y1="18" x2="{{m.rx}}" y2="210"></line>
+            <sc-for list="{{m.dots}}" as="d" hint-placeholder-count="10">
+              <circle class="ev-dot {{d.cls}}" cx="{{d.x}}" cy="{{d.y}}" r="5"></circle>
+            </sc-for>
+            <text class="lbl" x="{{m.l1x}}" y="{{m.l1y}}">Salário +7.200</text>
+            <text class="lbl" x="{{m.l2x}}" y="{{m.l2y}}">Aluguel −1.950</text>
+            <text class="ax" x="40" y="238">1</text><text class="ax" x="162.7" y="238">5</text><text class="ax" x="316" y="238">10</text><text class="ax" x="469.3" y="238">15</text><text class="ax" x="622.7" y="238">20</text><text class="ax" x="776" y="238">25</text><text class="ax" x="960" y="238">31</text>
+            <g class="bun" style="transform: translate({{m.rx}}px, {{m.ry}}px)">
+              <g class="hop"><g transform="translate(-19 -46) scale(0.4)"><rect class="f" x="31" y="4" width="14" height="44" rx="7" transform="rotate(-14 38 44)"></rect><rect class="f" x="51" y="4" width="14" height="44" rx="7" transform="rotate(14 58 44)"></rect><circle class="sep" cx="48" cy="62" r="28"></circle><path class="cut" d="M41.5 63.5 Q48 60.5 54.5 63.5 Q52 70 48 71.5 Q44 70 41.5 63.5 Z"></path></g></g>
+            </g>
+          </svg>
+        </div>
+        <div class="lp-month-ctrl">
+          <button class="btn btn-outline btn-icon btn-sm" aria-label="{{m.playLabel}}" onClick="{{m.toggle}}">
+            <sc-if value="{{m.playing}}" hint-placeholder-val="{{ false }}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5v14M15 5v14"></path></svg></sc-if>
+            <sc-if value="{{m.paused}}" hint-placeholder-val="{{ true }}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z"></path></svg></sc-if>
+          </button>
+          <label class="sr-only" for="lp-dia">Dia de outubro</label>
+          <input id="lp-dia" class="lp-range" type="range" min="1" max="31" step="1" value="{{m.dia}}" onChange="{{m.onDia}}">
+          <span class="t-xs t-muted lp-hint">Arraste para ver o mês</span>
+        </div>
+      </div>
+      <p class="t-xs t-muted" style="margin-top: 12px">Exemplo com lançamentos fictícios de um mês.</p>
+    </div>
+  </section>
+
+  <section class="lp-sec" style="padding-bottom: 0">
+    <div class="lp-wrap">
+      <div class="lp-head center">
+        <span class="lp-kicker">Por dentro</span>
+        <h2 class="lp-h2">Tudo do mês em uma tela.</h2>
+      </div>
+      <div class="lp-shot" aria-label="Prévia do painel do Pit Finance" role="img">
+        <div class="pf lp-app" data-theme="dark" aria-hidden="true">
+          <div class="lp-app-side">
+            <div class="brand" style="height: 36px; font-size: 14px"><span class="brand-mark" style="width: 24px; height: 24px; border-radius: 7px"><svg class="ic ic-sm" viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg></span>Pit Finance</div>
+            <span class="nav-item is-active"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>Dashboard</span>
+            <span class="nav-item"><svg class="ic" viewBox="0 0 24 24"><path d="M22 7l-8.5 8.5-5-5L2 17"></path><path d="M16 7h6v6"></path></svg>Receitas</span>
+            <span class="nav-item"><svg class="ic" viewBox="0 0 24 24"><path d="M22 17l-8.5-8.5-5 5L2 7"></path><path d="M16 17h6v-6"></path></svg>Despesas</span>
+            <span class="nav-item"><svg class="ic" viewBox="0 0 24 24"><path d="M17 2l4 4-4 4"></path><path d="M3 11v-1a4 4 0 0 1 4-4h14"></path><path d="M7 22l-4-4 4-4"></path><path d="M21 13v1a4 4 0 0 1-4 4H3"></path></svg>Despesas fixas</span>
+          </div>
+          <div class="lp-app-main">
+            <div class="row" style="justify-content: space-between"><div><div class="t-xs t-muted">Outubro de 2026</div><strong style="font-size: 18px; letter-spacing: -0.02em">Visão geral</strong></div><span class="btn btn-primary btn-sm"><svg class="ic" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"></path></svg>Nova despesa</span></div>
+            <div class="kpis">
+              <div class="card kpi is-hero"><div class="kpi-top"><span>Saldo do período</span></div><div class="kpi-value num t-income">R$ 3.213,52</div><div class="kpi-foot"><span class="delta good">+29,0%</span></div></div>
+              <div class="card kpi"><div class="kpi-top"><span>Receitas</span></div><div class="kpi-value num">R$ 8.450,00</div><div class="kpi-foot"><span class="delta good">+4,2%</span></div></div>
+              <div class="card kpi"><div class="kpi-top"><span>Despesas</span></div><div class="kpi-value num">R$ 5.236,48</div><div class="kpi-foot"><span class="delta good">-6,8%</span></div></div>
+              <div class="card kpi"><div class="kpi-top"><span>A pagar</span></div><div class="kpi-value num t-warning">R$ 1.460,05</div><div class="kpi-foot">6 contas</div></div>
+            </div>
+            <div class="lp-app-grid">
+              <div class="card lp-hide-sm" style="padding: 14px 16px">
+                <div class="row" style="justify-content: space-between"><strong class="t-sm">Receitas × despesas</strong><span class="legend t-xs" style="gap: 10px"><span class="legend-item"><span class="legend-sw sw-in"></span>Receitas</span><span class="legend-item"><span class="legend-sw sw-out"></span>Despesas</span></span></div>
+                <svg class="chart-svg" viewBox="0 0 360 162" style="margin-top: 8px">
+                  <line class="grid" x1="20" y1="10" x2="356" y2="10"></line><line class="grid" x1="20" y1="75" x2="356" y2="75"></line><line class="grid" x1="20" y1="140" x2="356" y2="140"></line>
+                  <rect class="s-in" x="30" y="37.3" width="14" height="102.7" rx="2"></rect><rect class="s-out" x="48" y="45.7" width="14" height="94.3" rx="2"></rect>
+                  <rect class="s-in" x="86" y="34.7" width="14" height="105.3" rx="2"></rect><rect class="s-out" x="104" y="66.7" width="14" height="73.3" rx="2"></rect>
+                  <rect class="s-in" x="142" y="37.3" width="14" height="102.7" rx="2"></rect><rect class="s-out" x="160" y="57.1" width="14" height="82.9" rx="2"></rect>
+                  <rect class="s-in" x="198" y="24.3" width="14" height="115.7" rx="2"></rect><rect class="s-out" x="216" y="63" width="14" height="77" rx="2"></rect>
+                  <rect class="s-in" x="254" y="34.6" width="14" height="105.4" rx="2"></rect><rect class="s-out" x="272" y="67" width="14" height="73" rx="2"></rect>
+                  <rect class="s-in" x="310" y="30.1" width="14" height="109.9" rx="2"></rect><rect class="s-out" x="328" y="71.9" width="14" height="68.1" rx="2"></rect>
+                  <text class="tx-mid" x="48" y="156">Mai</text><text class="tx-mid" x="104" y="156">Jun</text><text class="tx-mid" x="160" y="156">Jul</text><text class="tx-mid" x="216" y="156">Ago</text><text class="tx-mid" x="272" y="156">Set</text><text class="tx-mid tx-strong" x="328" y="156">Out</text>
+                </svg>
+              </div>
+              <div class="card" style="padding: 10px 16px">
+                <strong class="t-sm">Próximas contas</strong>
+                <div class="list">
+                  <div class="list-row"><span class="date-box late"><b>01</b><small>out</small></span><div class="list-main"><strong class="t-sm">Internet</strong><span class="t-expense">Atrasada há 2 dias</span></div><span class="num t-sm t-strong">R$ 119,90</span></div>
+                  <div class="list-row"><span class="date-box"><b>08</b><small>out</small></span><div class="list-main"><strong class="t-sm">Notebook<span class="badge parcel">5/10</span></strong><span class="t-warning">Vence em 5 dias</span></div><span class="num t-sm t-strong">R$ 289,90</span></div>
+                  <div class="list-row"><span class="date-box"><b>10</b><small>out</small></span><div class="list-main"><strong class="t-sm">Empréstimo<span class="badge parcel">3/12</span></strong><span>Vence em 7 dias</span></div><span class="num t-sm t-strong">R$ 395,00</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="lp-sec" id="recursos" style="border-top: 1px solid var(--border)">
+    <div class="lp-wrap">
+      <div class="lp-head">
+        <span class="lp-kicker">Recursos</span>
+        <h2 class="lp-h2">Menos planilha, mais clareza sobre o mês.</h2>
+        <p class="lp-lead">O que se repete o Pit Finance lança sozinho. Com o resto, ele te ajuda a não esquecer.</p>
+      </div>
+      <div class="lp-feats">
+        <article class="card lp-feat">
+          <div><span class="lp-ic"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4"></path><path d="M3 11v-1a4 4 0 0 1 4-4h14"></path><path d="M7 22l-4-4 4-4"></path><path d="M21 13v1a4 4 0 0 1-4 4H3"></path></svg></span></div>
+          <div><h3>Contas fixas no automático</h3><p>Cadastre aluguel, internet e assinaturas uma vez. Todo mês elas aparecem na data certa, prontas para marcar como pagas.</p></div>
+          <div class="lp-visual">
+            <div class="list">
+              <div class="list-row"><span class="dot c1"></span><div class="list-main"><strong>Aluguel</strong><span>Todo dia 5</span></div><span class="num">R$ 1.950,00</span><span class="switch" aria-hidden="true" aria-checked="true"></span></div>
+              <div class="list-row"><span class="dot c3"></span><div class="list-main"><strong>Plano de saúde</strong><span>Todo dia 20</span></div><span class="num">R$ 412,00</span><span class="switch" aria-hidden="true" aria-checked="true"></span></div>
+              <div class="list-row"><span class="dot c7"></span><div class="list-main"><strong>Internet</strong><span>Todo dia 1</span></div><span class="num">R$ 119,90</span><span class="switch" aria-hidden="true" aria-checked="true"></span></div>
+            </div>
+          </div>
+        </article>
+        <article class="card lp-feat">
+          <div><span class="lp-ic"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2"></rect><path d="M2 10h20"></path></svg></span></div>
+          <div><h3>Parcelas até a última</h3><p>Compra em 10x? Você vê em qual parcela está, quanto falta e quando termina, sem fazer conta de cabeça.</p></div>
+          <div class="lp-visual pad stack" style="gap: 16px">
+            <div class="stack" style="gap: 8px"><div class="row" style="justify-content: space-between"><strong class="row" style="font-weight: 500">Notebook<span class="badge parcel">5/10</span></strong><span class="num t-sm t-muted">faltam R$ 1.449,50</span></div><progress class="bar neutral" value="5" max="10" aria-label="5 de 10 parcelas pagas"></progress></div>
+            <div class="stack" style="gap: 8px"><div class="row" style="justify-content: space-between"><strong class="row" style="font-weight: 500">Empréstimo<span class="badge parcel">3/12</span></strong><span class="num t-sm t-muted">faltam R$ 3.555,00</span></div><progress class="bar neutral" value="3" max="12" aria-label="3 de 12 parcelas pagas"></progress></div>
+          </div>
+        </article>
+        <article class="card lp-feat">
+          <div><span class="lp-ic"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg></span></div>
+          <div><h3>Vencimentos à vista</h3><p>Pendente, vence em breve ou atrasada: cada conta mostra o status com cor e texto, e você marca como paga com um toque.</p></div>
+          <div class="lp-visual pad row" style="gap: 8px; flex-wrap: wrap">
+            <span class="status paid static"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M9 12l2 2 4-4"></path></svg>Pago</span>
+            <span class="status pending static"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Vence em 5 dias</span>
+            <span class="status late static"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>Atrasada há 2 dias</span>
+          </div>
+        </article>
+      </div>
+      <div class="lp-minis">
+        <div class="card lp-mini"><svg class="ic ic-lg t-muted" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 22h18"></path><path d="M6 18v-7M10 18v-7M14 18v-7M18 18v-7"></path><path d="M12 2l8 5H4z"></path></svg><h4>Credores</h4><p>Quanto você deve a cada banco ou pessoa, o que já pagou e o que falta.</p></div>
+        <div class="card lp-mini"><svg class="ic ic-lg t-muted" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4z"></path><circle cx="7.5" cy="7.5" r="1"></circle></svg><h4>Tags com cor</h4><p>Moradia, Mercado, Lazer: suas categorias, do seu jeito, nos gráficos.</p></div>
+        <div class="card lp-mini"><svg class="ic ic-lg t-muted" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2"></rect><path d="M12 18h.01"></path></svg><h4>No celular e no computador</h4><p>Lance a despesa na fila do mercado e confira o mês no notebook.</p></div>
+        <div class="card lp-mini"><svg class="ic ic-lg t-muted" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"></path></svg><h4>Tema claro e escuro</h4><p>Confortável de dia e de noite, ou seguindo o tema do seu aparelho.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="lp-sec tight" id="como-funciona">
+    <div class="lp-wrap">
+      <div class="lp-head">
+        <span class="lp-kicker">Como funciona</span>
+        <h2 class="lp-h2">Organizado em uma tarde. Em dia o mês inteiro.</h2>
+      </div>
+      <div class="lp-steps">
+        <div class="lp-step"><span class="lp-step-n">01</span><h3>Crie sua conta</h3><p>Só e-mail e senha. Sem cartão de crédito para começar os 7 dias grátis.</p></div>
+        <div class="lp-step"><span class="lp-step-n">02</span><h3>Cadastre o que é fixo</h3><p>Aluguel, contas e assinaturas uma única vez. O Pit Finance gera todo mês.</p></div>
+        <div class="lp-step"><span class="lp-step-n">03</span><h3>Lance o dia a dia</h3><p>Despesas avulsas e parcelas em segundos. O painel mostra saldo, o que falta pagar e o que vence.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="lp-sec" id="preco">
+    <div class="lp-wrap lp-price">
+      <div>
+        <span class="lp-kicker">Preço</span>
+        <h2 class="lp-h2">Um plano, tudo incluído.</h2>
+        <p class="lp-lead">Teste tudo por 7 dias, sem cadastrar cartão. Se fizer sentido para você, continue por menos de um real por dia.</p>
+        <div class="lp-timeline">
+          <div class="lp-tl"><span class="lp-tl-dot"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg></span><div><strong>Hoje</strong><span>Você cria a conta e usa tudo, sem cartão.</span></div></div>
+          <div class="lp-tl"><span class="lp-tl-dot"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg></span><div><strong>Dia 7</strong><span>Fim do teste. Para continuar, é só assinar.</span></div></div>
+          <div class="lp-tl"><span class="lp-tl-dot"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4"></path><path d="M3 11v-1a4 4 0 0 1 4-4h14"></path><path d="M7 22l-4-4 4-4"></path><path d="M21 13v1a4 4 0 0 1-4 4H3"></path></svg></span><div><strong>Depois</strong><span>R$ 19,99 por mês.</span></div></div>
+        </div>
+      </div>
+      <div class="card lp-price-card">
+        <div class="row" style="justify-content: space-between"><strong style="font-size: 17px">Pit Finance</strong><span class="badge income">7 dias grátis</span></div>
+        <div><div class="lp-amount"><strong class="num">R$ 19,99</strong><span>/mês</span></div><p class="t-sm t-muted" style="margin-top: 6px">Sem cartão no teste.</p></div>
+        <ul class="lp-checks">
+          <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>Dashboard do mês e do ano</li>
+          <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>Receitas, despesas e despesas fixas automáticas</li>
+          <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>Parcelas acompanhadas até a última</li>
+          <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>Credores e tags com cor</li>
+          <li><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>Suporte por chamado</li>
+        </ul>
+        <a class="btn btn-primary btn-lg btn-block" href="AuthCadastro.dc.html">Começar 7 dias grátis</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="lp-sec tight" id="perguntas">
+    <div class="lp-wrap">
+      <div class="lp-head center"><span class="lp-kicker">Perguntas</span><h2 class="lp-h2">Antes de começar</h2></div>
+      <div class="lp-faq">
+        <details open="{{ true }}"><summary>Preciso cadastrar cartão para testar?<svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg></summary><p>Não. Os 7 dias grátis começam só com e-mail e senha.</p></details>
+        <details><summary>O que acontece depois dos 7 dias?<svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg></summary><p>Para continuar usando, você assina por R$ 19,99 por mês. Nada é cobrado automaticamente, porque nenhum cartão foi cadastrado no teste.</p></details>
+        <details><summary>O Pit Finance se conecta ao meu banco?<svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg></summary><p>Não. Você lança receitas e despesas no app, e as despesas fixas e parcelas são geradas automaticamente a cada mês.</p></details>
+        <details><summary>Funciona no celular?<svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg></summary><p>Sim. É só abrir no navegador do celular; a tela se adapta, com navegação embaixo e botão rápido para nova despesa.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="lp-sec tight">
+    <div class="lp-wrap">
+      <div class="pf lp-final" data-theme="{{band}}">
+        <h2 class="lp-h2">Comece o mês com as contas no lugar.</h2>
+        <p class="lp-lead" style="margin-left: auto; margin-right: auto">7 dias grátis, sem cartão. Depois, R$ 19,99 por mês.</p>
+        <div class="lp-ctas"><a class="btn btn-primary" href="AuthCadastro.dc.html">Criar conta grátis<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"></path></svg></a></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="lp-foot">
+  <div class="lp-wrap lp-foot-in">
+    <span class="row"><svg class="lp-logo ink" viewBox="0 0 96 96" aria-hidden="true" style="width: 22px; height: 22px"><rect class="f" x="31" y="4" width="14" height="44" rx="7" transform="rotate(-14 38 44)"></rect><rect class="f" x="51" y="4" width="14" height="44" rx="7" transform="rotate(14 58 44)"></rect><circle class="sep" cx="48" cy="62" r="28"></circle><path class="cut" d="M41.5 63.5 Q48 60.5 54.5 63.5 Q52 70 48 71.5 Q44 70 41.5 63.5 Z"></path></svg>© 2026 Rabbit · Pit Finance é um serviço Rabbit</span>
+    <nav class="row" style="gap: 20px" aria-label="Rodapé"><a href="#privacidade">Privacidade</a><a href="#termos">Termos de uso</a><a href="#suporte">Suporte</a></nav>
+  </div>
+</footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1440,"height":6400}}'>
+class Component extends DCLogic {
+  money(v) { return (v < 0 ? '−R$ ' : 'R$ ') + Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  componentDidMount() {
+    let reduce = false;
+    try { reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+    if (reduce) return;
+    this._t0 = setTimeout(() => { this.setState({ dia: 1 }); this.start(); }, 700);
+  }
+  componentWillUnmount() { clearTimeout(this._t0); clearInterval(this._iv); }
+  start() {
+    clearInterval(this._iv);
+    this.setState({ playing: true });
+    this._iv = setInterval(() => {
+      const d = (this.state && this.state.dia) || 1;
+      if (d >= 31) { this.stop(); return; }
+      this.setState({ dia: d + 1 });
+    }, 230);
+  }
+  stop() { clearInterval(this._iv); this.setState({ playing: false }); }
+  renderVals() {
+    const s = this.state || {};
+    const theme = this.props.theme === 'dark' ? 'dark' : 'light';
+    const EV = {
+      1: [['Internet', -119.9], ['Uber', -74.3], ['Farmácia', -58.9], ['Cinema', -64]],
+      2: [['Salário', 7200], ['Supermercado', -752.93], ['Combustível', -210]],
+      3: [['Feira', -86.4]],
+      5: [['Aluguel', -1950], ['Academia', -99.9]],
+      8: [['Notebook 5/10', -289.9]],
+      10: [['Condomínio', -480], ['Empréstimo 3/12', -395], ['Freelance', 850]],
+      12: [['Luz', -187.35]],
+      18: [['Streaming', -55.9]],
+      20: [['Plano de saúde', -412]],
+      25: [['Consultoria', 400]]
+    };
+    const START = 2491.6;
+    const X = (d) => +(40 + (d - 1) * 920 / 30).toFixed(1);
+    const Y = (v) => +(210 - v * 0.0205).toFixed(1);
+    const bal = [START];
+    for (let d = 1; d <= 31; d++) bal[d] = bal[d - 1] + (EV[d] || []).reduce((a, e) => a + e[1], 0);
+    const dia = Math.min(31, Math.max(1, s.dia || 31));
+    const build = (until) => {
+      let p = 'M40 ' + Y(START);
+      for (let d = 1; d <= until; d++) if (EV[d]) p += ' L' + X(d) + ' ' + Y(bal[d - 1]) + ' L' + X(d) + ' ' + Y(bal[d]);
+      p += ' L' + X(until) + ' ' + Y(bal[until]);
+      return p;
+    };
+    const pathPast = build(dia);
+    const dots = Object.keys(EV).map((k) => { const d = +k; const net = EV[d].reduce((a, e) => a + e[1], 0); return { x: X(d), y: Y(bal[d]), cls: (net >= 0 ? 'in' : 'out') + (d > dia ? ' is-future' : '') }; });
+    const evs = (EV[dia] || []).map((e) => ({ nome: e[0], valor: (e[1] > 0 ? '+' : '') + this.money(e[1]), cls: e[1] > 0 ? 'in' : 'out' }));
+    const delta = bal[dia] - START;
+    const playing = !!s.playing;
+    return {
+      theme: theme, band: theme === 'dark' ? 'light' : 'dark',
+      m: {
+        dia: dia, saldo: this.money(bal[dia]),
+        deltaTxt: (delta >= 0 ? '+' : '') + this.money(delta) + ' desde o início do mês',
+        deltaCls: delta >= 0 ? 't-income' : 't-expense',
+        events: evs, noEvents: evs.length === 0, eventsLabel: evs.length ? 'Neste dia' : '',
+        path: build(31), pathPast: pathPast, area: pathPast + ' L' + X(dia) + ' 210 L40 210 Z',
+        dots: dots, rx: X(dia), ry: Y(bal[dia]),
+        l1x: X(2) + 10, l1y: Y(bal[2]) - 12, l2x: X(5) + 10, l2y: Y(bal[5]) + 22,
+        svgCls: playing ? 'is-playing' : '',
+        playing: playing, paused: !playing, playLabel: playing ? 'Pausar animação' : 'Reproduzir o mês',
+        toggle: () => { if (playing) this.stop(); else { if (dia >= 31) this.setState({ dia: 1 }); this.start(); } },
+        onDia: (e) => { this.stop(); this.setState({ dia: parseInt(e.target.value, 10) || 1 }); }
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

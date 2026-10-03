@@ -1,233 +1,169 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { LifeBuoy, Plus } from "lucide-react"
-import { useAuth } from "@/hooks/use-auth"
-import {
-  createTicket,
-  getMyTickets,
-  CATEGORY_LABEL,
-  STATUS_LABEL,
-} from "@/lib/tickets-api"
-import type { TicketCategory, TicketStatus, TicketSummary } from "@/lib/tickets-api"
-import { PageShell } from "@/components/dashboard/page-shell"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Spinner } from "@/components/ui/spinner"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
+import { AlertCircle, ChevronRight, LifeBuoy, Plus, RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/hooks/use-auth"
+import { createTicket, getMyTickets } from "@/lib/tickets-api"
+import type { TicketStatus, TicketSummary } from "@/lib/tickets-api"
+import { PageShell } from "@/components/dashboard/page-shell"
+import { EmptyState } from "@/components/finance/empty-state"
+import { TableSkeleton } from "@/components/finance/skeletons"
+import { NewTicketSheet, type NewTicketValues } from "@/components/suporte/new-ticket-sheet"
+import { TicketCategoryBadge, TicketStatusBadge, formatTicketDate } from "@/components/suporte/ticket-ui"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 
 type TabValue = "all" | TicketStatus
 
 const TABS: { value: TabValue; label: string }[] = [
   { value: "all", label: "Todos" },
   { value: "OPEN", label: "Abertos" },
-  { value: "IN_PROGRESS", label: "Em Andamento" },
+  { value: "IN_PROGRESS", label: "Em andamento" },
   { value: "CLOSED", label: "Encerrados" },
 ]
-
-function statusStyle(status: TicketStatus) {
-  if (status === "OPEN") return "border-blue-500/20 bg-blue-500/10 text-blue-400"
-  if (status === "IN_PROGRESS") return "border-yellow-500/20 bg-yellow-500/10 text-yellow-400"
-  return "border-border bg-muted text-muted-foreground"
-}
-
-function emptyForm() {
-  return { title: "", description: "", category: "OTHER" as TicketCategory }
-}
 
 export default function ChamadosPage() {
   const router = useRouter()
   const { token } = useAuth()
 
   const [tickets, setTickets] = React.useState<TicketSummary[]>([])
-  const [isLoading, setIsLoading] = React.useState(false)
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [loadError, setLoadError] = React.useState<string | null>(null)
   const [activeTab, setActiveTab] = React.useState<TabValue>("all")
+  const [sheetOpen, setSheetOpen] = React.useState(false)
 
-  const [isDialogOpen, setIsDialogOpen] = React.useState(false)
-  const [form, setForm] = React.useState(emptyForm())
-  const [isSaving, setIsSaving] = React.useState(false)
-
-  React.useEffect(() => {
+  const load = React.useCallback(async () => {
     if (!token) return
-    let cancelled = false
     setIsLoading(true)
-    getMyTickets(token)
-      .then((data) => { if (!cancelled) setTickets(data) })
-      .catch((err) => { if (!cancelled) toast.error(err instanceof Error ? err.message : "Erro ao carregar chamados.") })
-      .finally(() => { if (!cancelled) setIsLoading(false) })
-    return () => { cancelled = true }
+    setLoadError(null)
+    try {
+      setTickets(await getMyTickets(token))
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Erro ao carregar chamados.")
+    } finally {
+      setIsLoading(false)
+    }
   }, [token])
 
-  const filtered = React.useMemo(
-    () => activeTab === "all" ? tickets : tickets.filter((t) => t.status === activeTab),
-    [tickets, activeTab],
-  )
+  React.useEffect(() => {
+    void load()
+  }, [load])
 
-  function openDialog() {
-    setForm(emptyForm())
-    setIsDialogOpen(true)
-  }
+  const counts = React.useMemo(() => {
+    const c: Record<TabValue, number> = { all: tickets.length, OPEN: 0, IN_PROGRESS: 0, CLOSED: 0 }
+    tickets.forEach((t) => (c[t.status] += 1))
+    return c
+  }, [tickets])
 
-  async function handleCreate() {
-    if (!token) return
-    const title = form.title.trim()
-    const description = form.description.trim()
-    if (title.length < 5) { toast.error("Título precisa ter pelo menos 5 caracteres."); return }
-    if (description.length < 10) { toast.error("Descrição precisa ter pelo menos 10 caracteres."); return }
+  const filtered = React.useMemo(() => (activeTab === "all" ? tickets : tickets.filter((t) => t.status === activeTab)), [tickets, activeTab])
 
-    setIsSaving(true)
+  async function create(values: NewTicketValues) {
+    if (!token) throw new Error("Sessão expirada.")
     try {
-      const ticket = await createTicket(token, { title, description, category: form.category })
-      setIsDialogOpen(false)
+      const ticket = await createTicket(token, values)
+      setSheetOpen(false)
       router.push(`/chamados/${ticket.id}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao criar chamado.")
-    } finally {
-      setIsSaving(false)
+      throw err
     }
   }
 
   return (
     <PageShell
-      title="Meus Chamados"
+      title="Suporte"
+      subtitle="Seus chamados com a equipe Pit Finance"
       headerActions={
-        <Button size="sm" onClick={openDialog}>
-          <Plus className="mr-2 size-4" />
-          Abrir Chamado
+        <Button onClick={() => setSheetOpen(true)}>
+          <Plus /> Novo chamado
         </Button>
       }
     >
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
-        <TabsList className="h-auto flex-wrap gap-y-1">
-          {TABS.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value}>
-              {tab.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-
-      {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
-
-      {!isLoading && filtered.length === 0 && (
-        <div className="flex flex-col items-center gap-3 py-16 text-center">
-          <LifeBuoy className="size-8 text-muted-foreground/40" />
-          <p className="text-sm text-muted-foreground/60">Nenhum chamado encontrado.</p>
-          <Button size="sm" variant="outline" onClick={openDialog}>
-            Abrir primeiro chamado
-          </Button>
-        </div>
-      )}
-
-      <div className="space-y-2">
-        {filtered.map((ticket) => {
-          const lastMsg = ticket.messages.at(-1)
-          return (
-            <Card
-              key={ticket.id}
-              className="cursor-pointer border-border bg-card transition-colors hover:bg-accent/20"
-              onClick={() => router.push(`/chamados/${ticket.id}`)}
-            >
-              <CardContent className="flex flex-col gap-2 px-5 py-4">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <span className="text-sm font-medium text-foreground/90">{ticket.title}</span>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <span className="rounded-full border border-border bg-accent/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                      {CATEGORY_LABEL[ticket.category]}
-                    </span>
-                    <span className={cn("rounded-full border px-1.5 py-0.5 text-[10px]", statusStyle(ticket.status))}>
-                      {STATUS_LABEL[ticket.status]}
-                    </span>
-                  </div>
-                </div>
-                {lastMsg && (
-                  <p className="line-clamp-1 text-xs text-muted-foreground/60">
-                    {lastMsg.isAdmin ? "Suporte: " : "Você: "}{lastMsg.content}
-                  </p>
-                )}
-                <p className="text-[10px] text-muted-foreground/40">
-                  {new Date(ticket.updatedAt).toLocaleDateString("pt-BR", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </p>
-              </CardContent>
-            </Card>
-          )
-        })}
+      <div role="group" aria-label="Filtrar por status" className="flex w-full flex-wrap gap-0.5 self-start rounded-lg bg-muted p-[3px] sm:w-auto">
+        {TABS.map((t) => (
+          <button
+            key={t.value}
+            type="button"
+            aria-pressed={activeTab === t.value}
+            onClick={() => setActiveTab(t.value)}
+            className={cn(
+              "inline-flex h-[34px] flex-1 items-center justify-center gap-1.5 rounded-md px-3 text-[13px] font-medium text-muted-foreground sm:flex-none",
+              activeTab === t.value && "bg-card text-foreground shadow-xs",
+            )}
+          >
+            {t.label}
+            <span className="num text-[11px] text-muted-foreground">{counts[t.value]}</span>
+          </button>
+        ))}
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) setIsDialogOpen(false) }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Abrir Chamado</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Título</label>
-              <Input
-                placeholder="Descreva o problema em poucas palavras"
-                value={form.title}
-                onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Descrição</label>
-              <Textarea
-                placeholder="Explique com mais detalhes o que aconteceu"
-                className="min-h-[100px] resize-none"
-                value={form.description}
-                onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Categoria</label>
-              <Select
-                value={form.category}
-                onValueChange={(v) => setForm((p) => ({ ...p, category: v as TicketCategory }))}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="TECHNICAL">Técnico</SelectItem>
-                  <SelectItem value="FINANCIAL">Financeiro</SelectItem>
-                  <SelectItem value="ACCOUNT">Conta</SelectItem>
-                  <SelectItem value="OTHER">Outro</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex justify-end gap-2 pt-1">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>
-                Cancelar
-              </Button>
-              <Button onClick={handleCreate} disabled={isSaving}>
-                {isSaving ? <Spinner className="mr-2 size-4" /> : null}
-                {isSaving ? "Enviando..." : "Abrir Chamado"}
+      <Card className="gap-0 overflow-clip py-0" aria-label="Seus chamados">
+        {isLoading ? (
+          <TableSkeleton rows={4} cols={3} />
+        ) : loadError ? (
+          <div className="p-4">
+            <div role="alert" className="flex items-start gap-3 rounded-[10px] border border-expense/40 bg-expense-soft px-3.5 py-3">
+              <AlertCircle className="mt-0.5 size-5 shrink-0 text-expense" aria-hidden />
+              <div className="min-w-0 flex-1 text-[13px]">
+                <strong className="block text-sm font-semibold">Não foi possível carregar os chamados</strong>
+                <span className="text-muted-foreground">{loadError}</span>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => void load()}>
+                <RefreshCw /> Tentar novamente
               </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={LifeBuoy}
+            title={tickets.length === 0 ? "Nenhum chamado ainda" : "Nenhum chamado neste filtro"}
+            description={tickets.length === 0 ? "Precisa de ajuda ou tem uma sugestão? Abra um chamado e a equipe responde por aqui." : undefined}
+            action={
+              tickets.length === 0 ? (
+                <Button onClick={() => setSheetOpen(true)}>
+                  <Plus /> Abrir primeiro chamado
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={() => setActiveTab("all")}>
+                  Ver todos
+                </Button>
+              )
+            }
+          />
+        ) : (
+          <ul className="divide-y">
+            {filtered.map((t) => {
+              const last = t.messages.at(-1)
+              return (
+                <li key={t.id}>
+                  <Link href={`/chamados/${t.id}`} className="flex items-center gap-3 px-4 py-3.5 hover:bg-muted/40 md:px-5">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <strong className="truncate text-sm font-medium">{t.title}</strong>
+                        <TicketCategoryBadge category={t.category} />
+                      </div>
+                      {last && (
+                        <p className="mt-0.5 line-clamp-1 text-[13px] text-muted-foreground">
+                          <span className="font-medium">{last.isAdmin ? "Suporte" : "Você"}:</span> {last.content}
+                        </p>
+                      )}
+                      <p className="num mt-0.5 text-xs text-muted-foreground">Atualizado em {formatTicketDate(t.updatedAt)}</p>
+                    </div>
+                    <TicketStatusBadge status={t.status} />
+                    <ChevronRight className="hidden size-4 text-muted-foreground sm:block" aria-hidden />
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </Card>
+
+      <NewTicketSheet open={sheetOpen} onOpenChange={setSheetOpen} onSubmit={create} />
     </PageShell>
   )
 }

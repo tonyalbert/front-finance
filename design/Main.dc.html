@@ -1,0 +1,1699 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Pit Finance — App</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./pf.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>body{margin:0}</style>
+</helmet>
+<div class="pf pf-root" data-theme="{{theme}}">
+<div class="app {{appClass}}">
+
+<aside class="sidebar" aria-label="Navegação principal">
+<div class="sidebar-inner">
+  <div class="brand">
+    <span class="brand-mark"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg></span>
+    <span class="brand-text">Pit Finance</span>
+  </div>
+  <nav class="nav" aria-label="Seções">
+    <button class="nav-item {{nav.dashboard}}" aria-current="{{cur.dashboard}}" onClick="{{go.dashboard}}" title="Dashboard"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg><span class="nav-text">Dashboard</span></button>
+    <button class="nav-item {{nav.receitas}}" aria-current="{{cur.receitas}}" onClick="{{go.receitas}}" title="Receitas"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 7l-8.5 8.5-5-5L2 17"></path><path d="M16 7h6v6"></path></svg><span class="nav-text">Receitas</span></button>
+    <button class="nav-item {{nav.despesas}}" aria-current="{{cur.despesas}}" onClick="{{go.despesas}}" title="Despesas"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 17l-8.5-8.5-5 5L2 7"></path><path d="M16 17h6v-6"></path></svg><span class="nav-text">Despesas</span></button>
+    <button class="nav-item {{nav.fixas}}" aria-current="{{cur.fixas}}" onClick="{{go.fixas}}" title="Despesas fixas"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4"></path><path d="M3 11v-1a4 4 0 0 1 4-4h14"></path><path d="M7 22l-4-4 4-4"></path><path d="M21 13v1a4 4 0 0 1-4 4H3"></path></svg><span class="nav-text">Despesas fixas</span></button>
+    <button class="nav-item {{nav.ia}}" aria-current="{{cur.ia}}" onClick="{{go.ia}}" title="Análise com IA"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.9L19 9.7l-5.2 1.8L12 16.5l-1.8-5L5 9.7l5.2-1.8z"></path><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"></path></svg><span class="nav-text">Análise com IA</span></button>
+    <button class="nav-item {{nav.suporte}}" aria-current="{{cur.suporte}}" onClick="{{go.suporte}}" title="Suporte"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="4"></circle><path d="M4.9 4.9l4.3 4.3M14.8 14.8l4.3 4.3M14.8 9.2l4.3-4.3M4.9 19.1l4.3-4.3"></path></svg><span class="nav-text">Suporte</span></button>
+  </nav>
+  <sc-if value="{{isAdmin}}" hint-placeholder-val="{{ true }}">
+    <div class="nav-label">Administração</div>
+    <nav class="nav" aria-label="Administração">
+      <button class="nav-item {{nav.admin}}" aria-current="{{cur.admin}}" onClick="{{go.admin}}" title="Admin Suporte"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg><span class="nav-text">Admin Suporte</span><span class="count num" aria-label="3 chamados abertos">3</span></button>
+    </nav>
+  </sc-if>
+  <div class="sidebar-foot">
+    <button class="nav-item {{nav.tags}}" aria-current="{{cur.tags}}" onClick="{{go.tags}}" title="Tags"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4z"></path><circle cx="7.5" cy="7.5" r="1"></circle></svg><span class="nav-text">Tags</span></button>
+    <button class="nav-item {{nav.credores}}" aria-current="{{cur.credores}}" onClick="{{go.credores}}" title="Credores"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 22h18"></path><path d="M6 18v-7M10 18v-7M14 18v-7M18 18v-7"></path><path d="M12 2l8 5H4z"></path></svg><span class="nav-text">Credores</span></button>
+    <button class="nav-item {{nav.config}}" aria-current="{{cur.config}}" onClick="{{go.config}}" title="Tema"><sc-if value="{{isDark}}" hint-placeholder-val="{{ true }}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"></path></svg></sc-if><sc-if value="{{isLight}}" hint-placeholder-val="{{ false }}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4"></path></svg></sc-if><span class="nav-text">Tema: {{themeLabel}}</span></button>
+    <div class="user-row">
+      <span class="avatar">TA</span>
+      <span class="user-meta"><strong>Tony Albert</strong><span>Administrador</span></span>
+      <button class="btn btn-ghost btn-icon btn-sm user-meta" style="flex:none;width:32px" aria-label="Sair da conta"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="M16 17l5-5-5-5"></path><path d="M21 12H9"></path></svg></button>
+    </div>
+  </div>
+</div>
+</aside>
+
+<div class="main">
+<header class="topbar">
+  <button class="btn btn-ghost btn-icon btn-sm desktop-only" aria-label="{{collapseLabel}}" onClick="{{toggleSidebar}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M9 3v18"></path></svg></button>
+  <span class="brand-mark mobile-only" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg></span>
+  <nav class="crumbs" aria-label="Você está em"><span>Pit Finance</span><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg><strong>{{title}}</strong></nav>
+  <div class="spacer"></div>
+  <div class="period" role="group" aria-label="Período">
+    <button aria-label="Mês anterior" onClick="{{prevMonth}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg></button>
+    <span class="label num" aria-live="polite"><span class="label-long">{{periodLong}}</span><span class="label-short">{{periodShort}}</span></span>
+    <button aria-label="Próximo mês" onClick="{{nextMonth}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg></button>
+  </div>
+  <button class="search-trigger" onClick="{{openPalette}}" aria-label="Buscar ou executar comando (Ctrl K)"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg><span class="st-text">Buscar ou executar…</span><span class="kbd">Ctrl K</span></button>
+  <button class="avatar-btn" aria-label="Menu do usuário: Tony Albert" onClick="{{go.config}}"><span class="avatar">TA</span></button>
+</header>
+
+<main class="content" id="conteudo">
+
+<sc-if value="{{is.dashboard}}" hint-placeholder-val="{{ true }}">
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Visão geral</h1>
+      <p class="page-sub">Resumo de {{periodLower}}</p>
+    </div>
+    <div class="actions">
+      <button class="btn btn-outline" onClick="{{openReceitaNew}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg>Nova receita</button>
+      <button class="btn btn-primary" onClick="{{openDespesa}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg>Nova despesa</button>
+    </div>
+  </div>
+
+  <sc-if value="{{late.has}}" hint-placeholder-val="{{ false }}">
+    <div class="alert error" role="status">
+      <svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>
+      <div class="alert-body"><strong>{{late.title}}</strong><span class="t-muted">{{late.text}}</span></div>
+      <button class="btn btn-outline btn-sm" onClick="{{late.see}}">Ver atrasadas</button>
+    </div>
+  </sc-if>
+
+  <div class="kpis">
+    <div class="card kpi is-hero">
+      <div class="kpi-top"><span>Saldo do período</span><span class="kpi-icon primary"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg></span></div>
+      <div class="kpi-value num {{k.saldoCls}}">{{k.saldo}}</div>
+      <div class="kpi-foot"><span class="delta {{k.dSaldo.cls}}"><svg class="ic ic-sm {{k.dSaldo.rot}}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>{{k.dSaldo.txt}}</span><span>vs. setembro</span></div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-top"><span>Receitas</span><span class="kpi-icon income"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 7l-8.5 8.5-5-5L2 17"></path><path d="M16 7h6v6"></path></svg></span></div>
+      <div class="kpi-value num">{{k.rec}}</div>
+      <div class="kpi-foot"><span class="delta {{k.dRec.cls}}"><svg class="ic ic-sm {{k.dRec.rot}}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>{{k.dRec.txt}}</span><span>vs. setembro</span></div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-top"><span>Despesas</span><span class="kpi-icon expense"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 17l-8.5-8.5-5 5L2 7"></path><path d="M16 17h6v-6"></path></svg></span></div>
+      <div class="kpi-value num">{{k.desp}}</div>
+      <div class="kpi-foot"><span class="delta {{k.dDesp.cls}}"><svg class="ic ic-sm {{k.dDesp.rot}}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>{{k.dDesp.txt}}</span><span>vs. setembro</span></div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-top"><span>A pagar</span><span class="kpi-icon warning"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg></span></div>
+      <div class="kpi-value num">{{k.pend}}</div>
+      <div class="kpi-foot"><span class="delta {{k.dPend.cls}}"><svg class="ic ic-sm {{k.dPend.rot}}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>{{k.dPend.txt}}</span><span>{{k.pendCount}}</span></div>
+    </div>
+  </div>
+
+  <div class="grid-main">
+    <section class="card" aria-labelledby="h-chart">
+      <div class="card-head">
+        <div><h2 class="card-title" id="h-chart">Receitas × despesas</h2><p class="card-desc">Por mês, em {{yr.label}}</p></div>
+        <div class="seg" role="group" aria-label="Ano do gráfico">
+          <button aria-pressed="{{yr.p25}}" onClick="{{yr.set25}}">2025</button>
+          <button aria-pressed="{{yr.p26}}" onClick="{{yr.set26}}">2026</button>
+        </div>
+      </div>
+      <div class="card-body stack" style="gap: 14px">
+        <sc-if value="{{yr.is26}}" hint-placeholder-val="{{ true }}">
+          <div class="legend">
+            <span class="legend-item"><span class="legend-sw sw-in"></span>Receitas <strong class="num">R$ 83.110,00</strong></span>
+            <span class="legend-item"><span class="legend-sw sw-out"></span>Despesas <strong class="num">R$ 60.428,28</strong></span>
+            <span class="legend-item t-muted"><span class="legend-sw sw-plan"></span>Fixas previstas</span>
+          </div>
+          <div class="chart-scroll">
+            <svg class="chart-svg" viewBox="0 0 720 252" role="img" aria-label="Gráfico de barras de receitas e despesas por mês em 2026. Outubro: receitas R$ 8.450,00 e despesas R$ 5.236,48.">
+              <rect class="hl" x="548" y="4" width="56" height="218" rx="6"></rect>
+              <line class="grid" x1="44" y1="10" x2="716" y2="10"></line>
+              <line class="grid" x1="44" y1="62.5" x2="716" y2="62.5"></line>
+              <line class="grid" x1="44" y1="115" x2="716" y2="115"></line>
+              <line class="grid" x1="44" y1="167.5" x2="716" y2="167.5"></line>
+              <line class="grid" x1="44" y1="220" x2="716" y2="220"></line>
+              <text class="tx-end" x="36" y="14">10 mil</text>
+              <text class="tx-end" x="36" y="66.5">7,5 mil</text>
+              <text class="tx-end" x="36" y="119">5 mil</text>
+              <text class="tx-end" x="36" y="171.5">2,5 mil</text>
+              <text class="tx-end" x="36" y="224">0</text>
+              <rect class="s-in" x="53" y="54.1" width="18" height="165.9" rx="3"></rect><rect class="s-out" x="73" y="91.5" width="18" height="128.5" rx="3"></rect>
+              <rect class="s-in" x="109" y="54.1" width="18" height="165.9" rx="3"></rect><rect class="s-out" x="129" y="104.9" width="18" height="115.1" rx="3"></rect>
+              <rect class="s-in" x="165" y="44.65" width="18" height="175.35" rx="3"></rect><rect class="s-out" x="185" y="74.9" width="18" height="145.1" rx="3"></rect>
+              <rect class="s-in" x="221" y="18.4" width="18" height="201.6" rx="3"></rect><rect class="s-out" x="241" y="96.7" width="18" height="123.3" rx="3"></rect>
+              <rect class="s-in" x="277" y="54.1" width="18" height="165.9" rx="3"></rect><rect class="s-out" x="297" y="67.7" width="18" height="152.3" rx="3"></rect>
+              <rect class="s-in" x="333" y="49.9" width="18" height="170.1" rx="3"></rect><rect class="s-out" x="353" y="101.6" width="18" height="118.4" rx="3"></rect>
+              <rect class="s-in" x="389" y="54.1" width="18" height="165.9" rx="3"></rect><rect class="s-out" x="409" y="86" width="18" height="134" rx="3"></rect>
+              <rect class="s-in" x="445" y="33.1" width="18" height="186.9" rx="3"></rect><rect class="s-out" x="465" y="95.7" width="18" height="124.3" rx="3"></rect>
+              <rect class="s-in" x="501" y="49.7" width="18" height="170.3" rx="3"></rect><rect class="s-out" x="521" y="102" width="18" height="118" rx="3"></rect>
+              <rect class="s-in" x="557" y="42.55" width="18" height="177.45" rx="3"></rect><rect class="s-out" x="577" y="110" width="18" height="110" rx="3"></rect>
+              <rect class="s-plan" x="633.75" y="151.25" width="16.5" height="68" rx="3"></rect>
+              <rect class="s-plan" x="689.75" y="151.25" width="16.5" height="68" rx="3"></rect>
+              <text class="tx-mid" x="72" y="242">Jan</text><text class="tx-mid" x="128" y="242">Fev</text><text class="tx-mid" x="184" y="242">Mar</text><text class="tx-mid" x="240" y="242">Abr</text>
+              <text class="tx-mid" x="296" y="242">Mai</text><text class="tx-mid" x="352" y="242">Jun</text><text class="tx-mid" x="408" y="242">Jul</text><text class="tx-mid" x="464" y="242">Ago</text>
+              <text class="tx-mid" x="520" y="242">Set</text><text class="tx-mid tx-strong" x="576" y="242">Out</text><text class="tx-mid" x="632" y="242">Nov</text><text class="tx-mid" x="688" y="242">Dez</text>
+            </svg>
+          </div>
+        </sc-if>
+        <sc-if value="{{yr.is25}}" hint-placeholder-val="{{ false }}">
+          <div class="empty" style="padding: 48px 16px">
+            <div class="empty-icon"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg></div>
+            <h3>Sem lançamentos em 2025</h3>
+            <p>Seu histórico no Pit Finance começa em janeiro de 2026.</p>
+          </div>
+        </sc-if>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="h-cat">
+      <div class="card-head">
+        <div><h2 class="card-title" id="h-cat">Despesas por categoria</h2><p class="card-desc">Outubro de 2026</p></div>
+        <button class="btn btn-ghost btn-sm" onClick="{{go.tags}}">Tags</button>
+      </div>
+      <div class="card-body stack" style="gap: 20px">
+        <div class="donut-wrap">
+          <svg class="donut" viewBox="0 0 42 42" role="img" aria-label="Distribuição das despesas de outubro: Moradia 50%, Mercado 16%, Saúde 10,9%, Lazer 7,8%, Empréstimo 7,5%, outros 7,7%.">
+            <circle class="track" cx="21" cy="21" r="15.9155"></circle>
+            <circle class="d1" cx="21" cy="21" r="15.9155" style="stroke-dasharray: 49.38 50.62; stroke-dashoffset: 0"></circle>
+            <circle class="d2" cx="21" cy="21" r="15.9155" style="stroke-dasharray: 15.43 84.57; stroke-dashoffset: -49.98"></circle>
+            <circle class="d3" cx="21" cy="21" r="15.9155" style="stroke-dasharray: 10.3 89.7; stroke-dashoffset: -66.01"></circle>
+            <circle class="d4" cx="21" cy="21" r="15.9155" style="stroke-dasharray: 7.23 92.77; stroke-dashoffset: -76.91"></circle>
+            <circle class="d5" cx="21" cy="21" r="15.9155" style="stroke-dasharray: 6.94 93.06; stroke-dashoffset: -84.74"></circle>
+            <circle class="d6" cx="21" cy="21" r="15.9155" style="stroke-dasharray: 7.12 92.88; stroke-dashoffset: -92.28"></circle>
+          </svg>
+          <div class="donut-center"><strong class="num">R$ 5.236,48</strong><span>15 despesas</span></div>
+        </div>
+        <div class="cat-list">
+          <div class="cat-row"><span class="dot c1"></span><span>Moradia</span><span class="num">R$ 2.617,35</span><span class="pct num">50,0%</span></div>
+          <div class="cat-row"><span class="dot c2"></span><span>Mercado</span><span class="num">R$ 839,33</span><span class="pct num">16,0%</span></div>
+          <div class="cat-row"><span class="dot c3"></span><span>Saúde</span><span class="num">R$ 570,80</span><span class="pct num">10,9%</span></div>
+          <div class="cat-row"><span class="dot c4"></span><span>Lazer</span><span class="num">R$ 409,80</span><span class="pct num">7,8%</span></div>
+          <div class="cat-row"><span class="dot c5"></span><span>Empréstimo</span><span class="num">R$ 395,00</span><span class="pct num">7,5%</span></div>
+          <div class="cat-row"><span class="dot c7"></span><span>Outras (2)</span><span class="num">R$ 404,20</span><span class="pct num">7,7%</span></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="card" aria-labelledby="h-meses">
+    <div class="card-head">
+      <div><h2 class="card-title" id="h-meses">Mês a mês em 2026</h2><p class="card-desc">Receita, despesa e saldo de cada mês, por trimestre</p></div>
+    </div>
+    <div class="card-body">
+      <div class="quarters">
+        <sc-for list="{{quarters}}" as="q" hint-placeholder-count="4">
+          <div class="quarter">
+            <div class="quarter-head"><strong>{{q.label}}</strong><span class="num">Saldo {{q.saldo}}</span></div>
+            <sc-for list="{{q.months}}" as="mo" hint-placeholder-count="3">
+              <div class="month {{mo.cls}}" aria-current="{{mo.current}}">
+                <span class="m-name">{{mo.nome}}<sc-if value="{{mo.isCurrent}}" hint-placeholder-val="{{ false }}"><span class="badge primary" style="height: 18px; font-size: 11px; padding: 0 6px">Atual</span></sc-if><sc-if value="{{mo.isFuture}}" hint-placeholder-val="{{ false }}"><span class="badge outline" style="height: 18px; font-size: 11px; padding: 0 6px">Previsto</span></sc-if></span>
+                <span class="m-saldo num {{mo.saldoCls}}">{{mo.saldo}}</span>
+                <span class="m-line num"><span>{{mo.l1k}} <b style="font-weight: 500" class="{{mo.l1c}}">{{mo.l1}}</b></span><span>{{mo.l2k}} <b style="font-weight: 500" class="{{mo.l2c}}">{{mo.l2}}</b></span></span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </section>
+
+  <div class="grid-3">
+    <section class="card" aria-labelledby="h-fixas">
+      <div class="card-head">
+        <div><h2 class="card-title" id="h-fixas">Despesas fixas</h2><p class="card-desc">Comprometido todo mês</p></div>
+        <button class="btn btn-ghost btn-sm" onClick="{{go.fixas}}">Ver todas</button>
+      </div>
+      <div class="card-body stack" style="gap: 12px">
+        <div><div class="kpi-value num">{{fx.total}}</div><div class="t-muted t-sm">{{fx.resumo}}</div></div>
+        <div class="list">
+          <sc-for list="{{fx.top}}" as="f" hint-placeholder-count="4">
+            <div class="list-row" style="min-height: 44px; padding: 8px 0">
+              <span class="dot {{f.tagC}}"></span>
+              <div class="list-main"><strong>{{f.nome}}</strong><span>Todo dia {{f.dia}}</span></div>
+              <span class="num">{{f.valorFmt}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="h-prox">
+      <div class="card-head">
+        <div><h2 class="card-title" id="h-prox">Próximas contas</h2><p class="card-desc">Pendentes de outubro, por vencimento</p></div>
+        <button class="btn btn-ghost btn-sm" onClick="{{go.despesas}}">Ver todas</button>
+      </div>
+      <div class="card-body">
+        <sc-if value="{{up.none}}" hint-placeholder-val="{{ false }}">
+          <div class="empty" style="padding: 24px 8px"><div class="empty-icon"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M9 12l2 2 4-4"></path></svg></div><h3>Tudo pago</h3><p>Nenhuma conta pendente em outubro.</p></div>
+        </sc-if>
+        <div class="list">
+          <sc-for list="{{up.items}}" as="u" hint-placeholder-count="5">
+            <div class="list-row">
+              <span class="date-box {{u.boxCls}}"><b>{{u.dia}}</b><small>out</small></span>
+              <div class="list-main"><strong>{{u.item}}<sc-if value="{{u.hasParcela}}" hint-placeholder-val="{{ false }}"><span class="badge parcel">{{u.parcela}}</span></sc-if></strong><span class="{{u.whenCls}}">{{u.when}}</span></div>
+              <div class="stack" style="gap: 4px; align-items: flex-end">
+                <span class="num t-strong">{{u.valorFmt}}</span>
+                <button class="link-btn" style="padding: 0; font-size: 12px" onClick="{{u.pay}}" aria-label="Marcar {{u.item}} como paga">Marcar paga</button>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="h-cred">
+      <div class="card-head">
+        <div><h2 class="card-title" id="h-cred">Credores</h2><p class="card-desc">Pago e em aberto em outubro</p></div>
+        <button class="btn btn-ghost btn-sm" onClick="{{go.credores}}">Ver todos</button>
+      </div>
+      <div class="card-body">
+        <div class="list">
+          <sc-for list="{{cred.list}}" as="c" hint-placeholder-count="4">
+            <div class="list-row" style="align-items: flex-start">
+              <span class="avatar">{{c.ini}}</span>
+              <div class="list-main stack" style="gap: 6px">
+                <div class="row" style="justify-content: space-between"><strong>{{c.nome}}</strong><span class="num t-sm {{c.abertoCls}}">{{c.abertoTxt}}</span></div>
+                <progress class="bar {{c.barCls}}" value="{{c.pago}}" max="{{c.total}}" aria-label="{{c.nome}}: {{c.pctTxt}} pago"></progress>
+                <span class="num">{{c.pagoFmt}} pagos de {{c.totalFmt}}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+  </div>
+</sc-if>
+
+<sc-if value="{{is.receitas}}" hint-placeholder-val="{{ false }}">
+  <div class="page-head">
+    <div><h1 class="page-title">Receitas</h1><p class="page-sub">Entradas de {{periodLower}}</p></div>
+    <div class="actions">
+      <button class="btn btn-outline"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M7 10l5 5 5-5M12 15V3"></path></svg>Exportar</button>
+      <button class="btn btn-primary" onClick="{{openReceitaNew}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg>Nova receita</button>
+    </div>
+  </div>
+  <div class="kpis">
+    <div class="card kpi is-hero">
+      <div class="kpi-top"><span>Total do período</span><span class="kpi-icon income"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 7l-8.5 8.5-5-5L2 17"></path><path d="M16 7h6v6"></path></svg></span></div>
+      <div class="kpi-value num">{{rec.total}}</div>
+      <div class="kpi-foot"><span class="delta good"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>+4,2%</span><span>vs. setembro</span></div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-top"><span>Recebido</span><span class="kpi-icon income"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M9 12l2 2 4-4"></path></svg></span></div>
+      <div class="kpi-value num t-income">{{rec.recebido}}</div>
+      <div class="kpi-foot">Já caiu na conta</div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-top"><span>A receber</span><span class="kpi-icon warning"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg></span></div>
+      <div class="kpi-value num">{{rec.aReceber}}</div>
+      <div class="kpi-foot">Previsto até 25/10</div>
+    </div>
+  </div>
+  <section class="card" aria-label="Lista de receitas">
+    <div class="toolbar">
+      <div class="search input-wrap"><span class="prefix"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg></span><input class="input has-prefix" placeholder="Buscar fonte ou tag" aria-label="Buscar receitas" value="{{rec.q}}" onChange="{{rec.onQ}}"></div>
+      <div class="filter input-wrap"><select class="input" aria-label="Filtrar por tag"><option>Todas as tags</option><option>Salário</option><option>Freelance</option><option>Rendimentos</option></select><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></div>
+      <div class="filter input-wrap"><select class="input" aria-label="Filtrar por status"><option>Todos os status</option><option>Recebido</option><option>A receber</option></select><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></div>
+    </div>
+    <div class="table-wrap">
+      <table class="table responsive">
+        <thead><tr><th>Fonte</th><th>Tag</th><th>Data</th><th>Status</th><th class="r">Valor</th><th class="w-act"><span class="sr-only">Ações</span></th></tr></thead>
+        <tbody>
+          <sc-for list="{{rec.rows}}" as="r" hint-placeholder-count="3">
+            <tr>
+              <td class="m-a"><button class="link-plain" onClick="{{r.edit}}">{{r.fonte}}</button><div class="cell-sub">{{r.tag}} · {{r.data}}</div></td>
+              <td class="m-x"><span class="tag-pill"><span class="dot {{r.tagC}}"></span>{{r.tag}}</span></td>
+              <td class="m-x num">{{r.data}}</td>
+              <td class="m-d">
+                <sc-if value="{{r.recebido}}" hint-placeholder-val="{{ true }}"><span class="status paid static"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M9 12l2 2 4-4"></path></svg>Recebido</span></sc-if>
+                <sc-if value="{{r.aReceber}}" hint-placeholder-val="{{ false }}"><span class="status pending static"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>A receber</span></sc-if>
+              </td>
+              <td class="m-b r num t-strong">{{r.valorFmt}}</td>
+              <td class="m-x r"><button class="btn btn-ghost btn-icon btn-sm" aria-label="Editar {{r.fonte}}" onClick="{{r.edit}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"></path></svg></button></td>
+            </tr>
+          </sc-for>
+        </tbody>
+        <tfoot><tr><td class="m-a">Total do período</td><td class="m-x"></td><td class="m-x"></td><td class="m-x"></td><td class="m-b r num">{{rec.total}}</td><td class="m-x"></td></tr></tfoot>
+      </table>
+    </div>
+  </section>
+</sc-if>
+
+<sc-if value="{{is.despesas}}" hint-placeholder-val="{{ false }}">
+  <div class="page-head">
+    <div><h1 class="page-title">Despesas</h1><p class="page-sub">{{dt.sumCount}} em {{periodLower}}</p></div>
+    <div class="actions">
+      <button class="btn btn-outline"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M7 10l5 5 5-5M12 15V3"></path></svg>Exportar</button>
+      <button class="btn btn-primary" onClick="{{openDespesa}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg>Nova despesa</button>
+    </div>
+  </div>
+  <div class="kpis">
+    <div class="card kpi is-hero">
+      <div class="kpi-top"><span>Total do período</span><span class="kpi-icon expense"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 17l-8.5-8.5-5 5L2 7"></path><path d="M16 17h6v-6"></path></svg></span></div>
+      <div class="kpi-value num">{{dt.sumTotal}}</div>
+      <div class="kpi-foot"><span class="delta {{k.dDesp.cls}}"><svg class="ic ic-sm {{k.dDesp.rot}}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>{{k.dDesp.txt}}</span><span>vs. setembro</span></div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-top"><span>Pago</span><span class="kpi-icon income"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M9 12l2 2 4-4"></path></svg></span></div>
+      <div class="kpi-value num t-income">{{dt.sumPago}}</div>
+      <div class="kpi-foot">Quitado neste mês</div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-top"><span>Pendente</span><span class="kpi-icon warning"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg></span></div>
+      <div class="kpi-value num t-warning">{{dt.sumPend}}</div>
+      <div class="kpi-foot">{{dt.pendCount}}</div>
+    </div>
+  </div>
+
+  <section class="card" aria-label="Lista de despesas">
+    <div class="toolbar">
+      <div class="search input-wrap"><span class="prefix"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg></span><input class="input has-prefix" placeholder="Buscar item, tag ou credor" aria-label="Buscar despesas" value="{{dt.q}}" onChange="{{dt.onQ}}"></div>
+      <div class="filter input-wrap">
+        <select class="input" aria-label="Filtrar por status" value="{{dt.fStatus}}" onChange="{{dt.onStatus}}"><option value="todos">Todos os status</option><option value="pendente">Pendentes</option><option value="atrasado">Atrasadas</option><option value="pago">Pagas</option></select>
+        <svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+      </div>
+      <div class="filter input-wrap">
+        <select class="input" aria-label="Filtrar por tag" value="{{dt.fTag}}" onChange="{{dt.onTag}}"><option value="">Todas as tags</option><option value="Moradia">Moradia</option><option value="Mercado">Mercado</option><option value="Transporte">Transporte</option><option value="Saúde">Saúde</option><option value="Lazer">Lazer</option><option value="Contas">Contas</option><option value="Empréstimo">Empréstimo</option></select>
+        <svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+      </div>
+      <div class="filter input-wrap">
+        <select class="input" aria-label="Filtrar por credor" value="{{dt.fCred}}" onChange="{{dt.onCred}}"><option value="">Todos os credores</option><option value="Nubank">Nubank</option><option value="Itaú">Itaú</option><option value="Aluguel">Aluguel</option><option value="__none">Sem credor</option></select>
+        <svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+      </div>
+      <span class="spacer desktop-only"></span>
+      <span class="t-muted t-sm num desktop-only">{{dt.count}}</span>
+    </div>
+    <sc-if value="{{dt.hasChips}}" hint-placeholder-val="{{ false }}">
+      <div class="chips" aria-label="Filtros ativos">
+        <sc-for list="{{dt.chips}}" as="c" hint-placeholder-count="2">
+          <span class="chip"><span class="k">{{c.k}}:</span>{{c.v}}<button aria-label="Remover filtro {{c.k}}" onClick="{{c.rm}}"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></button></span>
+        </sc-for>
+        <button class="link-btn" onClick="{{dt.clear}}">Limpar filtros</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{dt.hasSel}}" hint-placeholder-val="{{ false }}">
+      <div class="bulkbar" role="region" aria-label="Ações em massa">
+        <strong class="num t-sm">{{dt.selTxt}}</strong>
+        <span class="spacer"></span>
+        <button class="btn" onClick="{{dt.markPaid}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>Marcar como pago</button>
+        <button class="btn" onClick="{{dt.bulkDel}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>Excluir</button>
+        <button class="btn btn-icon" aria-label="Limpar seleção" onClick="{{dt.clearSel}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{dt.loading}}" hint-placeholder-val="{{ false }}">
+      <div class="table-wrap" aria-busy="true">
+        <div class="row" style="height: 40px; padding: 0 20px; gap: 16px; border-bottom: 1px solid var(--border)"><div class="skel" style="width: 16px; height: 16px"></div><div class="skel" style="width: 60px; height: 10px"></div><span class="spacer"></span><div class="skel" style="width: 60px; height: 10px"></div></div>
+        <sc-for list="{{dt.skel}}" as="sk" hint-placeholder-count="7">
+          <div class="row" style="height: 54px; padding: 0 20px; gap: 16px; border-bottom: 1px solid var(--border)">
+            <div class="skel" style="width: 16px; height: 16px"></div>
+            <div class="skel" style="width: 26%"></div>
+            <div class="skel desktop-only" style="width: 12%"></div>
+            <div class="skel desktop-only" style="width: 10%"></div>
+            <span class="spacer"></span>
+            <div class="skel" style="width: 76px; height: 26px; border-radius: 999px"></div>
+            <div class="skel" style="width: 84px"></div>
+          </div>
+        </sc-for>
+        <span class="sr-only">Carregando despesas…</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{dt.erro}}" hint-placeholder-val="{{ false }}">
+      <div style="padding: 4px 20px 24px">
+        <div class="alert error" role="alert">
+          <svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path><path d="M12 9v4M12 17h.01"></path></svg>
+          <div class="alert-body"><strong>Não foi possível carregar as despesas</strong><span class="t-muted">A conexão com o servidor falhou. Seus lançamentos continuam salvos.</span></div>
+          <button class="btn btn-outline btn-sm" onClick="{{dt.retry}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16M3 12a9 9 0 0 1 15.5-6.2L21 8"></path><path d="M21 3v5h-5M3 21v-5h5"></path></svg>Tentar novamente</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{dt.vazio}}" hint-placeholder-val="{{ false }}">
+      <div class="empty" style="border-top: 1px solid var(--border)">
+        <div class="empty-icon"><svg class="ic ic-xl" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12h-6l-2 3h-4l-2-3H2"></path><path d="M5.5 5.1L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.5-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.7 1.1z"></path></svg></div>
+        <h3>Nenhuma despesa em outubro</h3>
+        <p>Registre a primeira despesa do mês ou gere agora as 7 despesas fixas ativas (R$ 3.307,70).</p>
+        <div class="actions" style="margin-top: 8px; justify-content: center">
+          <button class="btn btn-outline"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4"></path><path d="M3 11v-1a4 4 0 0 1 4-4h14"></path><path d="M7 22l-4-4 4-4"></path><path d="M21 13v1a4 4 0 0 1-4 4H3"></path></svg>Gerar despesas fixas</button>
+          <button class="btn btn-primary" onClick="{{openDespesa}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg>Nova despesa</button>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{dt.normal}}" hint-placeholder-val="{{ true }}">
+      <sc-if value="{{dt.empty}}" hint-placeholder-val="{{ false }}">
+        <div class="empty" style="border-top: 1px solid var(--border)">
+          <div class="empty-icon"><svg class="ic ic-xl" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg></div>
+          <h3>Nenhuma despesa encontrada</h3>
+          <p>Nenhum lançamento corresponde à busca e aos filtros atuais.</p>
+          <button class="btn btn-outline" style="margin-top: 8px" onClick="{{dt.clear}}">Limpar filtros</button>
+        </div>
+      </sc-if>
+      <sc-if value="{{dt.hasRows}}" hint-placeholder-val="{{ true }}">
+        <div class="table-wrap">
+          <table class="table responsive">
+            <thead>
+              <tr>
+                <th class="w-check"><input type="checkbox" class="check" checked="{{dt.allSel}}" onChange="{{dt.onSelAll}}" aria-label="{{dt.allAria}}"></th>
+                <th aria-sort="{{dt.srt.itemAria}}"><button class="th-btn" onClick="{{dt.srt.itemBy}}">Item<svg class="ic ic-sm sort-ic {{dt.srt.item}}" viewBox="0 0 24 24" aria-hidden="true"><path class="p-ud" d="M7 15l5 5 5-5M7 9l5-5 5 5"></path><path class="p-arrow" d="M12 19V5M5 12l7-7 7 7"></path></svg></button></th>
+                <th>Tag</th>
+                <th>Credor</th>
+                <th aria-sort="{{dt.srt.diaAria}}"><button class="th-btn" onClick="{{dt.srt.diaBy}}">Vencimento<svg class="ic ic-sm sort-ic {{dt.srt.dia}}" viewBox="0 0 24 24" aria-hidden="true"><path class="p-ud" d="M7 15l5 5 5-5M7 9l5-5 5 5"></path><path class="p-arrow" d="M12 19V5M5 12l7-7 7 7"></path></svg></button></th>
+                <th aria-sort="{{dt.srt.statusAria}}"><button class="th-btn" onClick="{{dt.srt.statusBy}}">Status<svg class="ic ic-sm sort-ic {{dt.srt.status}}" viewBox="0 0 24 24" aria-hidden="true"><path class="p-ud" d="M7 15l5 5 5-5M7 9l5-5 5 5"></path><path class="p-arrow" d="M12 19V5M5 12l7-7 7 7"></path></svg></button></th>
+                <th class="r" aria-sort="{{dt.srt.valorAria}}"><button class="th-btn" onClick="{{dt.srt.valorBy}}">Valor<svg class="ic ic-sm sort-ic {{dt.srt.valor}}" viewBox="0 0 24 24" aria-hidden="true"><path class="p-ud" d="M7 15l5 5 5-5M7 9l5-5 5 5"></path><path class="p-arrow" d="M12 19V5M5 12l7-7 7 7"></path></svg></button></th>
+                <th class="w-act"><span class="sr-only">Ações</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{dt.rows}}" as="row" hint-placeholder-count="15">
+                <tr class="{{row.rowCls}}">
+                  <td class="m-x"><input type="checkbox" class="check" checked="{{row.sel}}" onChange="{{row.onSel}}" aria-label="Selecionar {{row.item}}"></td>
+                  <td class="m-a">
+                    <div class="cell-item">{{row.item}}<sc-if value="{{row.hasParcela}}" hint-placeholder-val="{{ false }}"><span class="badge parcel" title="Parcela {{row.parcela}}">{{row.parcela}}</span></sc-if><sc-if value="{{row.fixa}}" hint-placeholder-val="{{ false }}"><span class="badge fixed" title="Gerada por despesa fixa"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4"></path><path d="M3 11v-1a4 4 0 0 1 4-4h14"></path><path d="M7 22l-4-4 4-4"></path><path d="M21 13v1a4 4 0 0 1-4 4H3"></path></svg>Fixa</span></sc-if></div>
+                    <div class="cell-sub">{{row.tag}} · {{row.credor}} · vence {{row.dataCurta}}</div>
+                  </td>
+                  <td class="m-x"><span class="tag-pill"><span class="dot {{row.tagC}}"></span>{{row.tag}}</span></td>
+                  <td class="m-x">{{row.credor}}</td>
+                  <td class="m-x num">{{row.data}}</td>
+                  <td class="m-d">
+                    <sc-if value="{{row.isPago}}" hint-placeholder-val="{{ true }}"><button class="status paid" aria-label="{{row.statusAria}}" onClick="{{row.toggle}}"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M9 12l2 2 4-4"></path></svg>Pago</button></sc-if>
+                    <sc-if value="{{row.isPend}}" hint-placeholder-val="{{ false }}"><button class="status pending" aria-label="{{row.statusAria}}" onClick="{{row.toggle}}"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Pendente</button></sc-if>
+                    <sc-if value="{{row.isLate}}" hint-placeholder-val="{{ false }}"><button class="status late" aria-label="{{row.statusAria}}" onClick="{{row.toggle}}"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>Atrasado</button></sc-if>
+                  </td>
+                  <td class="m-b r num t-strong">{{row.valorFmt}}</td>
+                  <td class="m-x r">
+                    <button class="btn btn-ghost btn-icon btn-sm" aria-label="Ações de {{row.item}}" aria-haspopup="menu" onClick="{{row.openMenu}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle></svg></button>
+                    <sc-if value="{{row.menuOpen}}" hint-placeholder-val="{{ false }}">
+                      <button class="menu-catcher" aria-label="Fechar menu" onClick="{{row.openMenu}}"></button>
+                      <div class="menu" role="menu" aria-label="Ações de {{row.item}}">
+                        <button class="menu-item" role="menuitem" onClick="{{row.mPay}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"></path></svg>{{row.mPayTxt}}</button>
+                        <button class="menu-item" role="menuitem" onClick="{{row.mEdit}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"></path></svg>Editar</button>
+                        <button class="menu-item" role="menuitem" onClick="{{row.mDup}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="14" height="14" rx="2"></rect><path d="M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2"></path></svg>Duplicar</button>
+                        <div class="menu-sep"></div>
+                        <button class="menu-item danger" role="menuitem" onClick="{{row.mDel}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>Excluir</button>
+                      </div>
+                    </sc-if>
+                  </td>
+                </tr>
+              </sc-for>
+            </tbody>
+            <tfoot>
+              <tr>
+                <td class="m-x"></td>
+                <td class="m-a">Total <span class="t-muted num" style="font-weight: 400">· pago {{dt.pago}} · pendente {{dt.pend}}</span></td>
+                <td class="m-x"></td><td class="m-x"></td><td class="m-x"></td><td class="m-x"></td>
+                <td class="m-b r num">{{dt.total}}</td>
+                <td class="m-x"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div class="pager">
+          <span class="num">{{dt.pager}}</span>
+          <div class="row">
+            <button class="btn btn-outline btn-icon btn-sm" aria-label="Página anterior" disabled="{{ true }}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg></button>
+            <span class="num">Página 1 de 1</span>
+            <button class="btn btn-outline btn-icon btn-sm" aria-label="Próxima página" disabled="{{ true }}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg></button>
+          </div>
+        </div>
+      </sc-if>
+    </sc-if>
+  </section>
+</sc-if>
+
+<sc-if value="{{is.fixas}}" hint-placeholder-val="{{ false }}">
+  <div class="page-head">
+    <div><h1 class="page-title">Despesas fixas</h1><p class="page-sub">Geradas automaticamente todo mês, no dia do vencimento</p></div>
+    <div class="actions"><button class="btn btn-primary"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg>Nova despesa fixa</button></div>
+  </div>
+  <div class="kpis">
+    <div class="card kpi is-hero">
+      <div class="kpi-top"><span>Comprometido por mês</span><span class="kpi-icon primary"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4"></path><path d="M3 11v-1a4 4 0 0 1 4-4h14"></path><path d="M7 22l-4-4 4-4"></path><path d="M21 13v1a4 4 0 0 1-4 4H3"></path></svg></span></div>
+      <div class="kpi-value num">{{fx.total}}</div>
+      <div class="kpi-foot">{{fx.resumo}}</div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-top"><span>Próxima geração</span><span class="kpi-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg></span></div>
+      <div class="kpi-value num">01/11/2026</div>
+      <div class="kpi-foot">{{fx.ativas}} despesas serão criadas em novembro</div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-top"><span>Pausadas</span><span class="kpi-icon"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M10 15V9M14 15V9"></path></svg></span></div>
+      <div class="kpi-value num">{{fx.inativas}}</div>
+      <div class="kpi-foot num">{{fx.inativasTotal}} por mês fora do orçamento</div>
+    </div>
+  </div>
+  <section class="card" aria-label="Lista de despesas fixas">
+    <div class="toolbar">
+      <div class="search input-wrap"><span class="prefix"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg></span><input class="input has-prefix" placeholder="Buscar despesa fixa" aria-label="Buscar despesas fixas"></div>
+      <div class="seg" role="group" aria-label="Situação"><button aria-pressed="true">Todas</button><button aria-pressed="false">Ativas</button><button aria-pressed="false">Pausadas</button></div>
+    </div>
+    <div class="table-wrap">
+      <table class="table responsive">
+        <thead><tr><th style="width: 72px">Ativa</th><th>Nome</th><th>Tag</th><th>Credor</th><th>Vencimento</th><th>Vigência</th><th class="r">Valor</th><th class="w-act"><span class="sr-only">Ações</span></th></tr></thead>
+        <tbody>
+          <sc-for list="{{fx.rows}}" as="f" hint-placeholder-count="8">
+            <tr>
+              <td class="m-d"><button type="button" class="switch" role="switch" aria-checked="{{f.ativoStr}}" aria-label="{{f.nome}} ativa" onClick="{{f.toggle}}"></button></td>
+              <td class="m-a"><div class="cell-item {{f.rowCls}}">{{f.nome}}<span class="badge {{f.statusCls}}" style="height: 20px; font-size: 11px">{{f.statusTxt}}</span></div><div class="cell-sub">{{f.dia}} · {{f.tag}} · {{f.vigencia}}</div></td>
+              <td class="m-x"><span class="tag-pill"><span class="dot {{f.tagC}}"></span>{{f.tag}}</span></td>
+              <td class="m-x">{{f.credor}}</td>
+              <td class="m-x num">{{f.dia}}</td>
+              <td class="m-x num t-muted">{{f.vigencia}}</td>
+              <td class="m-b r num t-strong {{f.rowCls}}">{{f.valorFmt}}</td>
+              <td class="m-x r"><button class="btn btn-ghost btn-icon btn-sm" aria-label="Ações de {{f.nome}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle></svg></button></td>
+            </tr>
+          </sc-for>
+        </tbody>
+        <tfoot><tr><td class="m-x"></td><td class="m-a">Total das ativas</td><td class="m-x"></td><td class="m-x"></td><td class="m-x"></td><td class="m-x"></td><td class="m-b r num">{{fx.total}}</td><td class="m-x"></td></tr></tfoot>
+      </table>
+    </div>
+  </section>
+</sc-if>
+
+<sc-if value="{{is.credores}}" hint-placeholder-val="{{ false }}">
+  <div class="page-head">
+    <div><h1 class="page-title">Credores</h1><p class="page-sub">Para quem você paga e quanto falta em {{periodLower}}</p></div>
+    <div class="actions"><button class="btn btn-primary"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg>Novo credor</button></div>
+  </div>
+  <div class="cred-grid">
+    <sc-for list="{{cred.list}}" as="c" hint-placeholder-count="4">
+      <button class="card cred-card {{c.cls}}" aria-pressed="{{c.pressed}}" onClick="{{c.pick}}">
+        <div class="row" style="gap: 12px; width: 100%">
+          <span class="avatar avatar-lg">{{c.ini}}</span>
+          <div class="list-main"><strong style="display: block; font-weight: 600">{{c.nome}}</strong><span class="t-muted t-xs">{{c.count}}</span></div>
+          <span class="t-sm num {{c.abertoCls}}" style="font-weight: 500">{{c.pctTxt}} pago</span>
+        </div>
+        <progress class="bar" value="{{c.pago}}" max="{{c.total}}" aria-label="{{c.nome}}: {{c.pctTxt}} pago"></progress>
+        <div class="stat-row" style="width: 100%">
+          <div class="stat-inline"><span>Total</span><strong class="num">{{c.totalFmt}}</strong></div>
+          <div class="stat-inline"><span>Pago</span><strong class="num t-income">{{c.pagoFmt}}</strong></div>
+          <div class="stat-inline"><span>Em aberto</span><strong class="num {{c.abertoCls}}">{{c.abertoFmt}}</strong></div>
+        </div>
+      </button>
+    </sc-for>
+  </div>
+  <section class="card" aria-labelledby="h-cred-det">
+    <div class="card-head" style="align-items: center">
+      <div class="row" style="gap: 12px">
+        <span class="avatar avatar-lg">{{cred.sel.ini}}</span>
+        <div><h2 class="card-title" id="h-cred-det">{{cred.sel.nome}}</h2><p class="card-desc">{{cred.sel.contato}}</p></div>
+      </div>
+      <div class="actions">
+        <span class="row t-sm t-muted"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"></path></svg>{{cred.sel.fone}}</span>
+        <span class="row t-sm t-muted"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M22 7l-10 6L2 7"></path></svg>{{cred.sel.email}}</span>
+        <button class="btn btn-outline btn-sm"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"></path></svg>Editar</button>
+      </div>
+    </div>
+    <div class="table-wrap" style="margin-top: 16px">
+      <table class="table responsive">
+        <thead><tr><th>Despesa</th><th>Vencimento</th><th>Status</th><th class="r">Valor</th></tr></thead>
+        <tbody>
+          <sc-for list="{{cred.sel.rows}}" as="r" hint-placeholder-count="5">
+            <tr>
+              <td class="m-a"><div class="cell-item">{{r.item}}<sc-if value="{{r.hasParcela}}" hint-placeholder-val="{{ false }}"><span class="badge parcel">{{r.parcela}}</span></sc-if></div><div class="cell-sub">vence {{r.data}}</div></td>
+              <td class="m-x num">{{r.data}}</td>
+              <td class="m-d">
+                <sc-if value="{{r.isPago}}" hint-placeholder-val="{{ true }}"><span class="status paid static"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M9 12l2 2 4-4"></path></svg>Pago</span></sc-if>
+                <sc-if value="{{r.isPend}}" hint-placeholder-val="{{ false }}"><span class="status pending static"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Pendente</span></sc-if>
+                <sc-if value="{{r.isLate}}" hint-placeholder-val="{{ false }}"><span class="status late static"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>Atrasado</span></sc-if>
+              </td>
+              <td class="m-b r num t-strong">{{r.valorFmt}}</td>
+            </tr>
+          </sc-for>
+        </tbody>
+        <tfoot><tr><td class="m-a">Em aberto: <span class="num">{{cred.sel.abertoFmt}}</span></td><td class="m-x"></td><td class="m-x"></td><td class="m-b r num">{{cred.sel.totalFmt}}</td></tr></tfoot>
+      </table>
+    </div>
+  </section>
+</sc-if>
+
+<sc-if value="{{is.tags}}" hint-placeholder-val="{{ false }}">
+  <div class="page-head">
+    <div><h1 class="page-title">Tags</h1><p class="page-sub">Categorias usadas em receitas e despesas</p></div>
+    <div class="actions"><button class="btn btn-primary" onClick="{{tags.openNew}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg>Nova tag</button></div>
+  </div>
+  <div class="grid-2">
+    <section class="card" aria-labelledby="h-tag-d">
+      <div class="card-head"><div><h2 class="card-title" id="h-tag-d">Despesa</h2><p class="card-desc">Totais de outubro de 2026</p></div><span class="badge outline num">7 tags</span></div>
+      <div class="card-body">
+        <div class="list">
+          <sc-for list="{{tags.desp}}" as="t" hint-placeholder-count="7">
+            <div class="list-row">
+              <span class="dot {{t.c}}" style="width: 10px; height: 10px"></span>
+              <div class="list-main"><strong>{{t.nome}}</strong><span>{{t.qtd}}</span></div>
+              <span class="num">{{t.total}}</span>
+              <button class="btn btn-ghost btn-icon btn-sm" aria-label="Editar tag {{t.nome}}" onClick="{{t.edit}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"></path></svg></button>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+    <section class="card" aria-labelledby="h-tag-r">
+      <div class="card-head"><div><h2 class="card-title" id="h-tag-r">Receita</h2><p class="card-desc">Totais de outubro de 2026</p></div><span class="badge outline num">3 tags</span></div>
+      <div class="card-body">
+        <div class="list">
+          <sc-for list="{{tags.rec}}" as="t" hint-placeholder-count="3">
+            <div class="list-row">
+              <span class="dot {{t.c}}" style="width: 10px; height: 10px"></span>
+              <div class="list-main"><strong>{{t.nome}}</strong><span>{{t.qtd}}</span></div>
+              <span class="num">{{t.total}}</span>
+              <button class="btn btn-ghost btn-icon btn-sm" aria-label="Editar tag {{t.nome}}" onClick="{{t.edit}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"></path></svg></button>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+  </div>
+</sc-if>
+
+<sc-if value="{{is.ia}}" hint-placeholder-val="{{ false }}">
+  <div class="page-head">
+    <div><h1 class="page-title">Análise com IA</h1><p class="page-sub">Pergunte sobre seus lançamentos em linguagem natural</p></div>
+    <div class="actions"><button class="btn btn-outline"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg>Nova conversa</button></div>
+  </div>
+  <div class="split" style="grid-template-columns: minmax(0, 260px) minmax(0, 1fr)">
+    <section class="card desktop-only" aria-labelledby="h-hist">
+      <div class="card-head"><h2 class="card-title" id="h-hist">Histórico</h2></div>
+      <div class="card-body stack" style="gap: 2px; padding-top: 10px">
+        <button class="history-item is-active" aria-current="true"><strong class="t-sm" style="font-weight: 500">Gastos de outubro</strong><span>Hoje</span></button>
+        <button class="history-item"><strong class="t-sm" style="font-weight: 500">Resumo de setembro</strong><span>30/09/2026</span></button>
+        <button class="history-item"><strong class="t-sm" style="font-weight: 500">Transporte em 2026</strong><span>21/09/2026</span></button>
+        <button class="history-item"><strong class="t-sm" style="font-weight: 500">Posso aumentar a reserva?</strong><span>02/09/2026</span></button>
+      </div>
+    </section>
+    <section class="card" aria-label="Conversa">
+      <div class="card-body chat" style="padding-top: 20px">
+        <div class="msg me"><div class="bubble">Onde gastei mais este mês?</div></div>
+        <div class="msg them">
+          <span class="ai-avatar" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l1.8 4.9L19 9.7l-5.2 1.8L12 16.5l-1.8-5L5 9.7l5.2-1.8z"></path></svg></span>
+          <div class="ai-card">
+            <p>Em outubro, <strong>Moradia</strong> concentra metade das suas despesas: <span class="num">R$ 2.617,35</span> de <span class="num">R$ 5.236,48</span>. Em seguida vêm Mercado e Saúde.</p>
+            <div class="card" style="padding: 14px 16px; box-shadow: none">
+              <div class="ai-bars">
+                <div class="ai-bar"><span class="tag-pill"><span class="dot c1"></span>Moradia</span><progress class="bar neutral" value="2617.35" max="2617.35" aria-label="Moradia"></progress><span class="num">R$ 2.617,35</span></div>
+                <div class="ai-bar"><span class="tag-pill"><span class="dot c2"></span>Mercado</span><progress class="bar neutral" value="839.33" max="2617.35" aria-label="Mercado"></progress><span class="num">R$ 839,33</span></div>
+                <div class="ai-bar"><span class="tag-pill"><span class="dot c3"></span>Saúde</span><progress class="bar neutral" value="570.8" max="2617.35" aria-label="Saúde"></progress><span class="num">R$ 570,80</span></div>
+              </div>
+            </div>
+            <div class="alert warning">
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>
+              <div class="alert-body"><strong>Ponto de atenção</strong>A Internet (R$ 119,90) está atrasada desde 01/10.</div>
+            </div>
+            <div class="actions">
+              <button class="btn btn-outline btn-sm" onClick="{{go.despesas}}">Ver despesas de Moradia</button>
+              <button class="btn btn-ghost btn-sm" onClick="{{late.see}}">Ver contas atrasadas</button>
+            </div>
+            <span class="t-xs t-muted">Baseado em 15 lançamentos de outubro de 2026</span>
+          </div>
+        </div>
+        <div class="msg me"><div class="bubble">Consigo guardar R$ 1.000 em novembro?</div></div>
+        <div class="msg them">
+          <span class="ai-avatar" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l1.8 4.9L19 9.7l-5.2 1.8L12 16.5l-1.8-5L5 9.7l5.2-1.8z"></path></svg></span>
+          <div class="ai-card">
+            <p>Pelo seu histórico, sim. Na média de 2026 sobram cerca de <span class="num">R$ 2.268</span> por mês, já contando as despesas fixas (<span class="num">R$ 3.307,70</span>). Separando R$ 1.000 no dia do salário, ainda ficam uns <span class="num">R$ 1.268</span> para imprevistos.</p>
+            <div class="card stat-row" style="padding: 14px 16px; box-shadow: none">
+              <div class="stat-inline"><span>Receita média</span><strong class="num">R$ 8.311,00</strong></div>
+              <div class="stat-inline"><span>Despesa média</span><strong class="num">R$ 6.042,83</strong></div>
+              <div class="stat-inline"><span>Sobra média</span><strong class="num t-income">R$ 2.268,17</strong></div>
+            </div>
+            <span class="t-xs t-muted">Média de janeiro a outubro de 2026. É uma estimativa, não uma recomendação financeira.</span>
+          </div>
+        </div>
+        <div class="stack" style="gap: 10px; margin-top: 8px">
+          <div class="row" style="flex-wrap: wrap">
+            <sc-for list="{{ia.sug}}" as="sg" hint-placeholder-count="4">
+              <button class="suggest" onClick="{{sg.pick}}">{{sg.t}}</button>
+            </sc-for>
+          </div>
+          <div class="composer">
+            <label class="sr-only" for="ia-q">Pergunta</label>
+            <textarea id="ia-q" rows="1" placeholder="Pergunte algo sobre suas finanças…" value="{{ia.q}}" onChange="{{ia.onQ}}"></textarea>
+            <button class="btn btn-primary btn-icon" aria-label="Enviar pergunta" onClick="{{ia.send}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2L11 13"></path><path d="M22 2l-7 20-4-9-9-4z"></path></svg></button>
+          </div>
+          <span class="t-xs t-muted">A IA usa apenas os seus lançamentos. Confira valores importantes antes de decidir.</span>
+        </div>
+      </div>
+    </section>
+  </div>
+</sc-if>
+
+<sc-if value="{{is.suporte}}" hint-placeholder-val="{{ false }}">
+  <div class="page-head">
+    <div><h1 class="page-title">Suporte</h1><p class="page-sub">Seus chamados com a equipe Pit Finance</p></div>
+    <div class="actions"><button class="btn btn-primary" onClick="{{sup.openNew}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg>Novo chamado</button></div>
+  </div>
+  <div class="split">
+    <section class="card ticket-list-card" aria-label="Seus chamados" style="overflow: hidden">
+      <sc-for list="{{sup.tickets}}" as="t" hint-placeholder-count="3">
+        <button class="ticket {{t.cls}}" aria-current="{{t.cur}}" onClick="{{t.pick}}">
+          <span class="ticket-top"><span class="num">#{{t.id}} · {{t.cat}}</span><span class="num">{{t.data}}</span></span>
+          <strong>{{t.assunto}}</strong>
+          <span class="row" style="gap: 8px"><span class="badge {{t.stCls}}">{{t.stTxt}}</span><span class="t-xs t-muted" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{t.last}}</span></span>
+        </button>
+      </sc-for>
+    </section>
+    <section class="card" aria-labelledby="h-ticket">
+      <div class="card-head" style="padding-bottom: 16px; border-bottom: 1px solid var(--border)">
+        <div><p class="t-xs t-muted num">#{{sup.det.id}} · {{sup.det.cat}} · aberto em {{sup.det.data}}</p><h2 class="card-title" id="h-ticket" style="margin-top: 4px">{{sup.det.assunto}}</h2></div>
+        <span class="badge {{sup.det.stCls}}">{{sup.det.stTxt}}</span>
+      </div>
+      <div class="card-body chat">
+        <sc-for list="{{sup.msgs}}" as="mm" hint-placeholder-count="4">
+          <div class="msg {{mm.cls}}">
+            <sc-if value="{{mm.them}}" hint-placeholder-val="{{ false }}"><span class="avatar" aria-hidden="true">MA</span></sc-if>
+            <div style="max-width: 78%; display: flex; flex-direction: column"><div class="bubble" style="max-width: none">{{mm.txt}}</div><span class="bubble-meta num">{{mm.autor}} · {{mm.hora}}</span></div>
+          </div>
+        </sc-for>
+        <sc-if value="{{sup.notResolved}}" hint-placeholder-val="{{ true }}">
+          <div class="composer" style="margin-top: 8px">
+            <label class="sr-only" for="sup-reply">Responder</label>
+            <textarea id="sup-reply" rows="2" placeholder="Escreva uma resposta…" value="{{sup.reply}}" onChange="{{sup.onReply}}"></textarea>
+            <button class="btn btn-primary" onClick="{{sup.send}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2L11 13"></path><path d="M22 2l-7 20-4-9-9-4z"></path></svg>Enviar</button>
+          </div>
+        </sc-if>
+        <sc-if value="{{sup.isResolved}}" hint-placeholder-val="{{ false }}">
+          <div class="alert"><svg class="ic t-income" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M9 12l2 2 4-4"></path></svg><div class="alert-body"><strong>Chamado resolvido</strong><span class="t-muted">Ainda com problema? Você pode reabrir em até 7 dias.</span></div><button class="btn btn-outline btn-sm">Reabrir</button></div>
+        </sc-if>
+      </div>
+    </section>
+  </div>
+</sc-if>
+
+<sc-if value="{{is.admin}}" hint-placeholder-val="{{ false }}">
+  <div class="page-head">
+    <div><h1 class="page-title">Fila de chamados</h1><p class="page-sub">{{adm.abertos}} chamados abertos aguardando primeira resposta</p></div>
+    <div class="actions"><span class="badge outline"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>Visível só para administradores</span></div>
+  </div>
+  <div class="grid-main">
+    <section class="card" aria-label="Chamados">
+      <div class="toolbar">
+        <div class="seg" role="group" aria-label="Filtrar por status">
+          <sc-for list="{{adm.tabs}}" as="tb" hint-placeholder-count="4">
+            <button aria-pressed="{{tb.pressed}}" onClick="{{tb.pick}}">{{tb.label}}<span class="n">{{tb.n}}</span></button>
+          </sc-for>
+        </div>
+        <span class="spacer"></span>
+        <div class="filter input-wrap"><select class="input" aria-label="Filtrar por responsável"><option>Todos os responsáveis</option><option>Sem responsável</option><option>Marina</option><option>Diego</option></select><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></div>
+      </div>
+      <div class="table-wrap">
+        <table class="table responsive">
+          <thead><tr><th>Chamado</th><th>Usuário</th><th>Prioridade</th><th>Status</th><th>Responsável</th><th class="r">Atualizado</th></tr></thead>
+          <tbody>
+            <sc-for list="{{adm.rows}}" as="a" hint-placeholder-count="8">
+              <tr class="{{a.cls}}">
+                <td class="m-a"><button class="link-plain" onClick="{{a.pick}}"><span class="t-muted num" style="font-weight: 400">#{{a.id}}</span> {{a.assunto}}</button><div class="cell-sub">{{a.usuario}} · {{a.prio}} · {{a.atual}}</div></td>
+                <td class="m-x">{{a.usuario}}</td>
+                <td class="m-x"><span class="badge {{a.prioCls}}">{{a.prio}}</span></td>
+                <td class="m-d"><span class="badge {{a.stCls}}">{{a.stTxt}}</span></td>
+                <td class="m-x {{a.respCls}}">{{a.respTxt}}</td>
+                <td class="m-x r t-muted num">{{a.atual}}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <section class="card" aria-labelledby="h-adm-det">
+      <div class="card-head" style="padding-bottom: 14px; border-bottom: 1px solid var(--border)">
+        <div><p class="t-xs t-muted num">#{{adm.det.id}} · {{adm.det.usuario}} · {{adm.det.atual}}</p><h2 class="card-title" id="h-adm-det" style="margin-top: 4px">{{adm.det.assunto}}</h2>
+          <div class="row" style="margin-top: 8px"><span class="badge {{adm.det.prioCls}}">Prioridade {{adm.det.prio}}</span><span class="badge {{adm.det.stCls}}">{{adm.det.stTxt}}</span></div></div>
+      </div>
+      <div class="card-body stack" style="gap: 16px">
+        <div class="msg them"><span class="avatar" aria-hidden="true">{{adm.det.ini}}</span><div class="bubble">{{adm.det.msg}}</div></div>
+        <div class="form-grid">
+          <div class="field"><label class="label" for="adm-resp">Responsável</label><div class="input-wrap"><select id="adm-resp" class="input" value="{{adm.resp}}" onChange="{{adm.onResp}}"><option value="">Sem responsável</option><option value="Marina">Marina</option><option value="Diego">Diego</option><option value="Tony">Eu (Tony)</option></select><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></div></div>
+          <div class="field"><label class="label" for="adm-st">Status</label><div class="input-wrap"><select id="adm-st" class="input" value="{{adm.st}}" onChange="{{adm.onSt}}"><option value="aberto">Aberto</option><option value="andamento">Em andamento</option><option value="resolvido">Resolvido</option></select><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></div></div>
+        </div>
+        <div class="field"><label class="label" for="adm-reply">Resposta ao usuário</label><textarea id="adm-reply" class="input" placeholder="Escreva a resposta…" value="{{adm.reply}}" onChange="{{adm.onReply}}"></textarea></div>
+        <div class="actions" style="justify-content: flex-end"><button class="btn btn-outline">Nota interna</button><button class="btn btn-primary" onClick="{{adm.send}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2L11 13"></path><path d="M22 2l-7 20-4-9-9-4z"></path></svg>Responder</button></div>
+      </div>
+    </section>
+  </div>
+</sc-if>
+
+<sc-if value="{{is.config}}" hint-placeholder-val="{{ false }}">
+  <div class="page-head">
+    <div><h1 class="page-title">Configurações</h1><p class="page-sub">Aparência e conta</p></div>
+  </div>
+  <section class="card" aria-labelledby="h-tema">
+    <div class="card-head"><div><h2 class="card-title" id="h-tema">Tema</h2><p class="card-desc">Como o Pit Finance aparece neste dispositivo</p></div></div>
+    <div class="card-body stack" style="gap: 20px">
+      <div class="theme-opts" role="radiogroup" aria-labelledby="h-tema">
+        <button class="theme-opt" role="radio" aria-checked="{{cfg.light}}" onClick="{{cfg.setLight}}">
+          <div class="pf mini" data-theme="light" aria-hidden="true"><div class="mini-side"><div class="mini-line p"></div><div class="mini-line"></div><div class="mini-line"></div></div><div class="mini-main"><div class="mini-line" style="width: 40%"></div><div class="row" style="gap: 5px; flex: 1"><div class="mini-card" style="height: 100%"></div><div class="mini-card" style="height: 100%"></div></div><div class="mini-card"></div></div></div>
+          <span class="opt-label">Claro<span class="radio-dot"></span></span>
+        </button>
+        <button class="theme-opt" role="radio" aria-checked="{{cfg.dark}}" onClick="{{cfg.setDark}}">
+          <div class="pf mini" data-theme="dark" aria-hidden="true"><div class="mini-side"><div class="mini-line p"></div><div class="mini-line"></div><div class="mini-line"></div></div><div class="mini-main"><div class="mini-line" style="width: 40%"></div><div class="row" style="gap: 5px; flex: 1"><div class="mini-card" style="height: 100%"></div><div class="mini-card" style="height: 100%"></div></div><div class="mini-card"></div></div></div>
+          <span class="opt-label">Escuro<span class="radio-dot"></span></span>
+        </button>
+        <button class="theme-opt" role="radio" aria-checked="{{cfg.system}}" onClick="{{cfg.setSystem}}">
+          <div class="mini-split" aria-hidden="true">
+            <div class="pf mini" data-theme="light" style="border: 0; border-radius: 0; flex: 1"><div class="mini-main"><div class="mini-line p"></div><div class="mini-card"></div></div></div>
+            <div class="pf mini" data-theme="dark" style="border: 0; border-radius: 0; flex: 1"><div class="mini-main"><div class="mini-line p"></div><div class="mini-card"></div></div></div>
+          </div>
+          <span class="opt-label">Sistema<span class="radio-dot"></span></span>
+        </button>
+      </div>
+      <div class="row desktop-only" style="justify-content: space-between; padding-top: 16px; border-top: 1px solid var(--border)">
+        <div><div class="label" id="cfg-col">Menu lateral recolhido</div><div class="hint">Mostra só os ícones para ganhar espaço</div></div>
+        <button type="button" class="switch" role="switch" aria-checked="{{cfg.collapsed}}" aria-labelledby="cfg-col" onClick="{{cfg.toggleCollapsed}}"></button>
+      </div>
+    </div>
+  </section>
+  <section class="card" aria-labelledby="h-conta">
+    <div class="card-head"><div><h2 class="card-title" id="h-conta">Conta</h2><p class="card-desc">Dados de acesso</p></div></div>
+    <div class="card-body stack" style="gap: 16px">
+      <div class="form-grid">
+        <div class="field"><label class="label" for="cfg-nome">Nome</label><input id="cfg-nome" class="input" placeholder="Seu nome" autocomplete="name"></div>
+        <div class="field"><label class="label" for="cfg-mail">E-mail</label><input id="cfg-mail" class="input" placeholder="voce@email.com" disabled="{{ true }}"><span class="hint">Para trocar o e-mail, abra um chamado no Suporte.</span></div>
+      </div>
+      <div class="actions" style="justify-content: space-between">
+        <button class="btn btn-ghost" style="color: var(--expense)"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="M16 17l5-5-5-5"></path><path d="M21 12H9"></path></svg>Sair da conta</button>
+        <button class="btn btn-primary">Salvar alterações</button>
+      </div>
+    </div>
+  </section>
+</sc-if>
+
+</main>
+</div>
+</div>
+
+<nav class="bottom-nav" aria-label="Navegação rápida">
+  <button class="bn-item {{nav.dashboard}}" aria-current="{{cur.dashboard}}" onClick="{{go.dashboard}}"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1"></rect><rect x="14" y="3" width="7" height="5" rx="1"></rect><rect x="14" y="12" width="7" height="9" rx="1"></rect><rect x="3" y="16" width="7" height="5" rx="1"></rect></svg>Início</button>
+  <button class="bn-item {{nav.despesas}}" aria-current="{{cur.despesas}}" onClick="{{go.despesas}}"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 17l-8.5-8.5-5 5L2 7"></path><path d="M16 17h6v-6"></path></svg>Despesas</button>
+  <button class="bn-fab" aria-label="Nova despesa" onClick="{{openDespesa}}"><svg class="ic ic-xl" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg></button>
+  <button class="bn-item {{nav.receitas}}" aria-current="{{cur.receitas}}" onClick="{{go.receitas}}"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 7l-8.5 8.5-5-5L2 17"></path><path d="M16 7h6v6"></path></svg>Receitas</button>
+  <button class="bn-item {{nav.more}}" onClick="{{openMore}}" aria-haspopup="dialog"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>Mais</button>
+</nav>
+
+<sc-if value="{{ov.despesa}}" hint-placeholder-val="{{ false }}">
+  <button class="overlay" aria-label="Fechar formulário" onClick="{{closeOverlay}}"></button>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="nd-title">
+    <div class="sheet-head">
+      <div class="spacer"><h2 id="nd-title">Nova despesa</h2><p>Lance uma despesa avulsa ou parcelada.</p></div>
+      <button class="btn btn-ghost btn-icon btn-sm" aria-label="Fechar" onClick="{{closeOverlay}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+    </div>
+    <div class="sheet-body">
+      <div class="field">
+        <label class="label" for="nd-item">Item <span class="req" aria-hidden="true">*</span></label>
+        <input id="nd-item" class="input" placeholder="Ex.: Supermercado" value="{{nd.item}}" onChange="{{nd.onItem}}" aria-invalid="{{nd.invItem}}" autocomplete="off">
+        <sc-if value="{{nd.errItem}}" hint-placeholder-val="{{ false }}"><span class="error-text"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>{{nd.errItem}}</span></sc-if>
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label class="label" for="nd-valor">Valor <span class="req" aria-hidden="true">*</span></label>
+          <div class="input-wrap"><span class="prefix">R$</span><input id="nd-valor" class="input has-prefix num" inputmode="numeric" placeholder="0,00" value="{{nd.valor}}" onChange="{{nd.onValor}}" aria-invalid="{{nd.invValor}}"></div>
+          <sc-if value="{{nd.errValor}}" hint-placeholder-val="{{ false }}"><span class="error-text"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>{{nd.errValor}}</span></sc-if>
+        </div>
+        <div class="field">
+          <label class="label" for="nd-data">Data</label>
+          <button id="nd-data" type="button" class="input" style="display: flex; align-items: center; gap: 8px; text-align: left; cursor: pointer" aria-haspopup="dialog" aria-expanded="{{nd.calStr}}" onClick="{{nd.toggleCal}}"><svg class="ic t-muted" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg><span class="num">{{nd.diaLabel}}</span></button>
+        </div>
+      </div>
+      <sc-if value="{{nd.calOpen}}" hint-placeholder-val="{{ false }}">
+        <div class="cal" role="dialog" aria-label="Escolher data">
+          <div class="cal-head"><span>Outubro de 2026</span><span class="t-muted t-xs">Hoje: 03/10</span></div>
+          <div class="cal-grid">
+            <span class="cal-dow">D</span><span class="cal-dow">S</span><span class="cal-dow">T</span><span class="cal-dow">Q</span><span class="cal-dow">Q</span><span class="cal-dow">S</span><span class="cal-dow">S</span>
+            <sc-for list="{{nd.cal}}" as="cd" hint-placeholder-count="35">
+              <button type="button" class="cal-day {{cd.cls}}" disabled="{{cd.blank}}" aria-label="{{cd.aria}}" onClick="{{cd.pick}}">{{cd.label}}</button>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+      <div class="form-grid">
+        <div class="field">
+          <label class="label" for="nd-tag">Tag <span class="req" aria-hidden="true">*</span></label>
+          <div class="input-wrap">
+            <select id="nd-tag" class="input" value="{{nd.tag}}" onChange="{{nd.onTag}}" aria-invalid="{{nd.invTag}}">
+              <option value="">Selecione</option><option value="Moradia">Moradia</option><option value="Mercado">Mercado</option><option value="Transporte">Transporte</option><option value="Saúde">Saúde</option><option value="Lazer">Lazer</option><option value="Contas">Contas</option><option value="Empréstimo">Empréstimo</option>
+            </select>
+            <svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+          </div>
+          <sc-if value="{{nd.errTag}}" hint-placeholder-val="{{ false }}"><span class="error-text"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>{{nd.errTag}}</span></sc-if>
+        </div>
+        <div class="field">
+          <label class="label" for="nd-cred">Credor</label>
+          <div class="input-wrap">
+            <select id="nd-cred" class="input" value="{{nd.credor}}" onChange="{{nd.onCredor}}">
+              <option value="">Sem credor</option><option value="Nubank">Nubank</option><option value="Itaú">Itaú</option><option value="Aluguel">Aluguel</option>
+            </select>
+            <svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+          </div>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label" id="nd-status-l">Status</span>
+        <div class="seg seg-block" role="group" aria-labelledby="nd-status-l">
+          <button type="button" aria-pressed="{{nd.pPend}}" onClick="{{nd.setPend}}"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Pendente</button>
+          <button type="button" aria-pressed="{{nd.pPago}}" onClick="{{nd.setPago}}"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M9 12l2 2 4-4"></path></svg>Pago</button>
+        </div>
+      </div>
+      <div class="row" style="justify-content: space-between; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px">
+        <div><div class="label" id="nd-parc-l">Compra parcelada</div><div class="hint">Gera uma despesa por mês com a parcela no nome</div></div>
+        <button type="button" class="switch" role="switch" aria-checked="{{nd.parcStr}}" aria-labelledby="nd-parc-l" onClick="{{nd.toggleParc}}"></button>
+      </div>
+      <sc-if value="{{nd.parcelado}}" hint-placeholder-val="{{ false }}">
+        <div class="field">
+          <label class="label" for="nd-parcelas">Número de parcelas</label>
+          <input id="nd-parcelas" class="input num" inputmode="numeric" value="{{nd.parcelas}}" onChange="{{nd.onParcelas}}" style="max-width: 140px">
+          <span class="hint">{{nd.parcHint}}</span>
+        </div>
+      </sc-if>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn btn-outline" onClick="{{closeOverlay}}">Cancelar</button>
+      <button class="btn btn-primary" onClick="{{nd.save}}">Salvar despesa</button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ov.receita}}" hint-placeholder-val="{{ false }}">
+  <button class="overlay" aria-label="Fechar formulário" onClick="{{closeOverlay}}"></button>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="rc-title">
+    <div class="sheet-head">
+      <div class="spacer"><h2 id="rc-title">{{rec.form.title}}</h2><p>Salário, freelas, rendimentos e outras entradas.</p></div>
+      <button class="btn btn-ghost btn-icon btn-sm" aria-label="Fechar" onClick="{{closeOverlay}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+    </div>
+    <div class="sheet-body">
+      <div class="field">
+        <label class="label" for="rc-fonte">Fonte <span class="req" aria-hidden="true">*</span></label>
+        <input id="rc-fonte" class="input" placeholder="Ex.: Salário mensal" value="{{rec.form.fonte}}" onChange="{{rec.form.onFonte}}" aria-invalid="{{rec.form.invFonte}}">
+        <sc-if value="{{rec.form.errFonte}}" hint-placeholder-val="{{ false }}"><span class="error-text"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>{{rec.form.errFonte}}</span></sc-if>
+      </div>
+      <div class="form-grid">
+        <div class="field">
+          <label class="label" for="rc-valor">Valor <span class="req" aria-hidden="true">*</span></label>
+          <div class="input-wrap"><span class="prefix">R$</span><input id="rc-valor" class="input has-prefix num" inputmode="numeric" placeholder="0,00" value="{{rec.form.valor}}" onChange="{{rec.form.onValor}}" aria-invalid="{{rec.form.invValor}}"></div>
+          <sc-if value="{{rec.form.errValor}}" hint-placeholder-val="{{ false }}"><span class="error-text"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg>{{rec.form.errValor}}</span></sc-if>
+        </div>
+        <div class="field">
+          <label class="label" for="rc-data">Data</label>
+          <div class="input-wrap"><span class="prefix"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4M8 2v4M3 10h18"></path></svg></span><input id="rc-data" class="input has-prefix num" inputmode="numeric" placeholder="dd/mm/aaaa" value="{{rec.form.data}}" onChange="{{rec.form.onData}}"></div>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="rc-tag">Tag</label>
+        <div class="input-wrap"><select id="rc-tag" class="input" value="{{rec.form.tag}}" onChange="{{rec.form.onTag}}"><option value="">Selecione</option><option value="Salário">Salário</option><option value="Freelance">Freelance</option><option value="Rendimentos">Rendimentos</option></select><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></div>
+      </div>
+      <div class="field">
+        <span class="label" id="rc-st-l">Status</span>
+        <div class="seg seg-block" role="group" aria-labelledby="rc-st-l">
+          <button type="button" aria-pressed="{{rec.form.pPrev}}" onClick="{{rec.form.setPrev}}"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>A receber</button>
+          <button type="button" aria-pressed="{{rec.form.pRec}}" onClick="{{rec.form.setRec}}"><svg class="ic ic-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M9 12l2 2 4-4"></path></svg>Recebido</button>
+        </div>
+      </div>
+    </div>
+    <div class="sheet-foot">
+      <sc-if value="{{rec.form.isEdit}}" hint-placeholder-val="{{ false }}"><button class="btn btn-ghost" style="color: var(--expense); margin-right: auto" onClick="{{rec.form.remove}}">Excluir</button></sc-if>
+      <button class="btn btn-outline" onClick="{{closeOverlay}}">Cancelar</button>
+      <button class="btn btn-primary" onClick="{{rec.form.save}}">Salvar receita</button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ov.tag}}" hint-placeholder-val="{{ false }}">
+  <button class="overlay" aria-label="Fechar formulário" onClick="{{closeOverlay}}"></button>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="tg-title">
+    <div class="sheet-head">
+      <div class="spacer"><h2 id="tg-title">Tag</h2><p>A cor aparece nos gráficos e nas listas.</p></div>
+      <button class="btn btn-ghost btn-icon btn-sm" aria-label="Fechar" onClick="{{closeOverlay}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+    </div>
+    <div class="sheet-body">
+      <div class="field"><label class="label" for="tg-nome">Nome</label><input id="tg-nome" class="input" placeholder="Ex.: Pets" value="{{tags.form.nome}}" onChange="{{tags.form.onNome}}"></div>
+      <div class="field">
+        <span class="label" id="tg-tipo-l">Usada em</span>
+        <div class="seg seg-block" role="group" aria-labelledby="tg-tipo-l">
+          <button type="button" aria-pressed="{{tags.form.pDesp}}" onClick="{{tags.form.setDesp}}">Despesas</button>
+          <button type="button" aria-pressed="{{tags.form.pRec}}" onClick="{{tags.form.setRec}}">Receitas</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label" id="tg-cor-l">Cor</span>
+        <div class="swatches" role="group" aria-labelledby="tg-cor-l">
+          <sc-for list="{{tags.form.swatches}}" as="sw" hint-placeholder-count="7">
+            <button type="button" class="swatch {{sw.c}}" aria-pressed="{{sw.pressed}}" aria-label="{{sw.aria}}" onClick="{{sw.pick}}"></button>
+          </sc-for>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">Prévia</span>
+        <div class="row" style="padding: 14px; border: 1px dashed var(--border); border-radius: 10px; gap: 16px">
+          <span class="tag-pill"><span class="dot {{tags.form.cor}}"></span>{{tags.form.preview}}</span>
+          <span class="badge outline"><span class="dot {{tags.form.cor}}"></span>{{tags.form.preview}}</span>
+        </div>
+      </div>
+    </div>
+    <div class="sheet-foot">
+      <button class="btn btn-outline" onClick="{{closeOverlay}}">Cancelar</button>
+      <button class="btn btn-primary" onClick="{{tags.form.save}}">Salvar tag</button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ov.excluir}}" hint-placeholder-val="{{ false }}">
+  <div class="overlay" aria-hidden="true"></div>
+  <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="del-title" aria-describedby="del-desc">
+    <div class="row" style="gap: 12px; align-items: flex-start">
+      <span class="kpi-icon expense" style="width: 36px; height: 36px"><svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></span>
+      <div class="stack" style="gap: 6px"><h2 id="del-title">{{dlg.title}}</h2><p id="del-desc">{{dlg.text}}</p></div>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn btn-outline" onClick="{{closeOverlay}}">Cancelar</button>
+      <button class="btn btn-destructive" onClick="{{dlg.confirm}}">Excluir</button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ov.chamado}}" hint-placeholder-val="{{ false }}">
+  <button class="overlay" aria-label="Fechar formulário" onClick="{{closeOverlay}}"></button>
+  <div class="dialog wide" role="dialog" aria-modal="true" aria-labelledby="ch-title">
+    <div class="row" style="justify-content: space-between"><h2 id="ch-title">Novo chamado</h2><button class="btn btn-ghost btn-icon btn-sm" aria-label="Fechar" onClick="{{closeOverlay}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></button></div>
+    <div class="form-grid">
+      <div class="field"><label class="label" for="ch-assunto">Assunto</label><input id="ch-assunto" class="input" placeholder="Resuma em uma frase" value="{{sup.form.assunto}}" onChange="{{sup.form.onAssunto}}"></div>
+      <div class="field"><label class="label" for="ch-cat">Categoria</label><div class="input-wrap"><select id="ch-cat" class="input" value="{{sup.form.cat}}" onChange="{{sup.form.onCat}}"><option value="Dúvida">Dúvida</option><option value="Problema">Problema</option><option value="Sugestão">Sugestão</option><option value="Conta e acesso">Conta e acesso</option></select><svg class="ic chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></div></div>
+      <div class="field span-2"><label class="label" for="ch-desc">Descrição</label><textarea id="ch-desc" class="input" placeholder="Conte o que aconteceu e o que você esperava" value="{{sup.form.desc}}" onChange="{{sup.form.onDesc}}"></textarea><span class="hint">Respondemos em até 1 dia útil.</span></div>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn btn-outline" onClick="{{closeOverlay}}">Cancelar</button>
+      <button class="btn btn-primary" onClick="{{sup.form.send}}">Enviar chamado</button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ov.palette}}" hint-placeholder-val="{{ false }}">
+  <button class="overlay" aria-label="Fechar busca" onClick="{{closeOverlay}}"></button>
+  <div class="palette" role="dialog" aria-modal="true" aria-label="Buscar e executar comandos">
+    <div class="palette-input">
+      <svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M21 21l-4.3-4.3"></path></svg>
+      <input aria-label="Buscar comando" placeholder="Buscar páginas, ações ou lançamentos…" value="{{pal.q}}" onChange="{{pal.onQ}}" onKeyDown="{{pal.onKey}}" autocomplete="off">
+      <span class="kbd">Esc</span>
+    </div>
+    <div class="palette-list">
+      <sc-if value="{{pal.hasActions}}" hint-placeholder-val="{{ true }}">
+        <div class="palette-label">Ações</div>
+        <sc-for list="{{pal.actions}}" as="c" hint-placeholder-count="4">
+          <button class="palette-item {{c.cls}}" onClick="{{c.run}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg>{{c.label}}<span class="kbd">{{c.kbd}}</span></button>
+        </sc-for>
+      </sc-if>
+      <sc-if value="{{pal.hasNav}}" hint-placeholder-val="{{ true }}">
+        <div class="palette-label">Ir para</div>
+        <sc-for list="{{pal.nav}}" as="c" hint-placeholder-count="5">
+          <button class="palette-item" onClick="{{c.run}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"></path></svg>{{c.label}}<span class="kbd">{{c.kbd}}</span></button>
+        </sc-for>
+      </sc-if>
+      <sc-if value="{{pal.hasItems}}" hint-placeholder-val="{{ false }}">
+        <div class="palette-label">Lançamentos de outubro</div>
+        <sc-for list="{{pal.items}}" as="c" hint-placeholder-count="3">
+          <button class="palette-item" onClick="{{c.run}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 17l-8.5-8.5-5 5L2 7"></path><path d="M16 17h6v-6"></path></svg>{{c.label}}<span class="num t-muted" style="margin-left: auto">{{c.valor}}</span></button>
+        </sc-for>
+      </sc-if>
+      <sc-if value="{{pal.none}}" hint-placeholder-val="{{ false }}">
+        <div class="empty" style="padding: 32px 16px"><h3>Nada encontrado</h3><p>Nenhum resultado para “{{pal.q}}”.</p></div>
+      </sc-if>
+    </div>
+    <div class="palette-foot"><span><span class="kbd">↑ ↓</span> navegar</span><span><span class="kbd">Enter</span> abrir</span><span><span class="kbd">Esc</span> fechar</span></div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ov.more}}" hint-placeholder-val="{{ false }}">
+  <button class="overlay" aria-label="Fechar menu" onClick="{{closeOverlay}}"></button>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="more-title">
+    <div class="sheet-head"><div class="spacer"><h2 id="more-title">Menu</h2><p>Tony Albert · Administrador</p></div><button class="btn btn-ghost btn-icon btn-sm" aria-label="Fechar" onClick="{{closeOverlay}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></button></div>
+    <div class="sheet-body" style="gap: 2px">
+      <button class="nav-item {{nav.fixas}}" style="min-height: 48px" onClick="{{go.fixas}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 2l4 4-4 4"></path><path d="M3 11v-1a4 4 0 0 1 4-4h14"></path><path d="M7 22l-4-4 4-4"></path><path d="M21 13v1a4 4 0 0 1-4 4H3"></path></svg>Despesas fixas</button>
+      <button class="nav-item {{nav.credores}}" style="min-height: 48px" onClick="{{go.credores}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 22h18"></path><path d="M6 18v-7M10 18v-7M14 18v-7M18 18v-7"></path><path d="M12 2l8 5H4z"></path></svg>Credores</button>
+      <button class="nav-item {{nav.tags}}" style="min-height: 48px" onClick="{{go.tags}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4z"></path><circle cx="7.5" cy="7.5" r="1"></circle></svg>Tags</button>
+      <button class="nav-item {{nav.ia}}" style="min-height: 48px" onClick="{{go.ia}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 4.9L19 9.7l-5.2 1.8L12 16.5l-1.8-5L5 9.7l5.2-1.8z"></path></svg>Análise com IA</button>
+      <button class="nav-item {{nav.suporte}}" style="min-height: 48px" onClick="{{go.suporte}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="4"></circle></svg>Suporte</button>
+      <sc-if value="{{isAdmin}}" hint-placeholder-val="{{ true }}"><button class="nav-item {{nav.admin}}" style="min-height: 48px" onClick="{{go.admin}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>Admin Suporte<span class="count num">3</span></button></sc-if>
+      <button class="nav-item {{nav.config}}" style="min-height: 48px" onClick="{{go.config}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"></path></svg>Configurações e tema</button>
+      <button class="nav-item" style="min-height: 48px; color: var(--expense)"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="M16 17l5-5-5-5"></path><path d="M21 12H9"></path></svg>Sair</button>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+  <div class="toaster" role="status" aria-live="polite">
+    <div class="toast">
+      <svg class="ic ic-lg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M9 12l2 2 4-4"></path></svg>
+      <div class="toast-body"><strong>{{toast.title}}</strong><span>{{toast.desc}}</span></div>
+      <button class="btn btn-ghost btn-icon btn-sm" aria-label="Fechar aviso" onClick="{{closeToast}}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"></path></svg></button>
+    </div>
+  </div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"page":{"editor":"enum","options":["dashboard","receitas","despesas","fixas","credores","tags","ia","suporte","admin","config"],"default":"dashboard","section":"Tela"},"theme":{"editor":"enum","options":["dark","light"],"default":"dark","section":"Tela"},"estado":{"editor":"enum","options":["normal","carregando","vazio","erro"],"default":"normal","section":"Tela"},"overlay":{"editor":"enum","options":["nenhum","despesa","receita","tag","paleta","excluir","chamado","mais"],"default":"nenhum","section":"Tela"},"demo":{"editor":"enum","options":["nenhum","selecao","filtros"],"default":"nenhum","section":"Tela"},"admin":{"editor":"boolean","default":true,"section":"Tela"},"$preview":{"width":1440,"height":2300}}'>
+class Component extends DCLogic {
+  fmt(v) {
+    const a = Math.abs(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return (v < 0 ? '-R$ ' : 'R$ ') + a;
+  }
+  pad(n) { return String(n).padStart(2, '0'); }
+  money(v) { return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  parseMoney(t) { return t ? parseFloat(String(t).replace(/\./g, '').replace(',', '.')) || 0 : 0; }
+  maskMoney(t) {
+    const dg = String(t).replace(/\D/g, '').slice(0, 11);
+    if (!dg) return '';
+    return this.money(parseInt(dg, 10) / 100);
+  }
+  delta(cur, prev, upIsGood) {
+    const d = (cur / prev - 1) * 100;
+    const good = upIsGood ? d >= 0 : d <= 0;
+    const txt = (d > 0 ? '+' : '') + d.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+    return { txt: txt, cls: good ? 'good' : 'bad', rot: d < 0 ? 'rot180' : '' };
+  }
+  componentWillUnmount() { clearTimeout(this._t); }
+  showToast(title, desc) {
+    clearTimeout(this._t);
+    this.setState({ toast: { title: title, desc: desc || '' } });
+    this._t = setTimeout(() => this.setState({ toast: null }), 3600);
+  }
+  base() {
+    if (this._base) return this._base;
+    const D = [
+      { id: 'd1', item: 'Aluguel', valor: 1950, dia: 5, tag: 'Moradia', credor: 'Aluguel', pago: true, fixa: true },
+      { id: 'd2', item: 'Condomínio', valor: 480, dia: 10, tag: 'Moradia', credor: '', pago: true, fixa: true },
+      { id: 'd3', item: 'Luz', valor: 187.35, dia: 12, tag: 'Moradia', credor: '', pago: false, fixa: true },
+      { id: 'd4', item: 'Internet', valor: 119.9, dia: 1, tag: 'Contas', credor: '', pago: false, fixa: true },
+      { id: 'd5', item: 'Supermercado', valor: 752.93, dia: 2, tag: 'Mercado', credor: 'Nubank', pago: true },
+      { id: 'd6', item: 'Feira', valor: 86.4, dia: 3, tag: 'Mercado', credor: '', pago: true },
+      { id: 'd7', item: 'Uber', valor: 74.3, dia: 1, tag: 'Transporte', credor: 'Nubank', pago: true },
+      { id: 'd8', item: 'Combustível', valor: 210, dia: 2, tag: 'Transporte', credor: 'Itaú', pago: true },
+      { id: 'd9', item: 'Farmácia', valor: 58.9, dia: 1, tag: 'Saúde', credor: 'Nubank', pago: true },
+      { id: 'd10', item: 'Plano de saúde', valor: 412, dia: 20, tag: 'Saúde', credor: '', pago: false, fixa: true },
+      { id: 'd11', item: 'Empréstimo Nubank', valor: 395, dia: 10, tag: 'Empréstimo', credor: 'Nubank', pago: false, parcela: '3/12' },
+      { id: 'd12', item: 'Notebook', valor: 289.9, dia: 8, tag: 'Lazer', credor: 'Itaú', pago: false, parcela: '5/10' },
+      { id: 'd13', item: 'Cinema', valor: 64, dia: 1, tag: 'Lazer', credor: '', pago: true },
+      { id: 'd14', item: 'Streaming', valor: 55.9, dia: 18, tag: 'Lazer', credor: 'Nubank', pago: false, fixa: true },
+      { id: 'd15', item: 'Academia', valor: 99.9, dia: 5, tag: 'Saúde', credor: 'Itaú', pago: true, fixa: true }
+    ];
+    const R = [
+      { id: 'r1', fonte: 'Salário mensal', valor: 7200, dia: 2, tag: 'Salário', recebido: true },
+      { id: 'r2', fonte: 'Projeto: site institucional', valor: 850, dia: 10, tag: 'Freelance', recebido: false },
+      { id: 'r3', fonte: 'Consultoria em planilhas', valor: 400, dia: 25, tag: 'Freelance', recebido: false }
+    ];
+    const F = [
+      { id: 'f1', nome: 'Aluguel', valor: 1950, dia: 5, inicio: '01/2024', fim: '', tag: 'Moradia', credor: 'Aluguel', ativo: true },
+      { id: 'f2', nome: 'Condomínio', valor: 480, dia: 10, inicio: '01/2024', fim: '', tag: 'Moradia', credor: '', ativo: true },
+      { id: 'f3', nome: 'Luz', valor: 190, dia: 12, inicio: '01/2024', fim: '', tag: 'Moradia', credor: '', ativo: true },
+      { id: 'f4', nome: 'Internet', valor: 119.9, dia: 1, inicio: '03/2025', fim: '', tag: 'Contas', credor: '', ativo: true },
+      { id: 'f5', nome: 'Plano de saúde', valor: 412, dia: 20, inicio: '06/2025', fim: '', tag: 'Saúde', credor: '', ativo: true },
+      { id: 'f6', nome: 'Streaming', valor: 55.9, dia: 18, inicio: '02/2026', fim: '', tag: 'Lazer', credor: 'Nubank', ativo: true },
+      { id: 'f7', nome: 'Academia', valor: 99.9, dia: 5, inicio: '01/2026', fim: '12/2026', tag: 'Saúde', credor: 'Itaú', ativo: true },
+      { id: 'f8', nome: 'Seguro do carro', valor: 168, dia: 25, inicio: '09/2025', fim: '08/2026', tag: 'Transporte', credor: 'Itaú', ativo: false }
+    ];
+    const TAGC = { 'Moradia': 'c1', 'Mercado': 'c2', 'Saúde': 'c3', 'Lazer': 'c4', 'Empréstimo': 'c5', 'Transporte': 'c6', 'Contas': 'c7', 'Salário': 'c1', 'Freelance': 'c2', 'Rendimentos': 'c3' };
+    const TAGS = [
+      { nome: 'Moradia', tipo: 'despesa' }, { nome: 'Mercado', tipo: 'despesa' }, { nome: 'Transporte', tipo: 'despesa' }, { nome: 'Saúde', tipo: 'despesa' },
+      { nome: 'Lazer', tipo: 'despesa' }, { nome: 'Contas', tipo: 'despesa' }, { nome: 'Empréstimo', tipo: 'despesa' },
+      { nome: 'Salário', tipo: 'receita' }, { nome: 'Freelance', tipo: 'receita' }, { nome: 'Rendimentos', tipo: 'receita' }
+    ];
+    const CRED = {
+      'Nubank': { ini: 'NU', contato: 'Cartão de crédito e empréstimo', fone: '', email: '' },
+      'Itaú': { ini: 'IT', contato: 'Cartão de crédito', fone: '', email: '' },
+      'Aluguel': { ini: 'AL', contato: 'Imobiliária Lopes', fone: '(21) 98877-6655', email: 'financeiro@imobiliarialopes.com.br' },
+      '': { ini: '—', contato: 'Despesas sem credor definido', fone: '', email: '' }
+    };
+    const T = [
+      { id: '1045', assunto: 'Dúvida sobre parcelamento no cartão', status: 'aberto', data: '02/10/2026', cat: 'Dúvida', last: 'Você: Comprei um celular em 10x no cartão…',
+        msgs: [{ me: true, autor: 'Você', hora: '02/10 · 19:20', txt: 'Comprei um celular em 10x no cartão. Lanço como despesa parcelada ou como despesa fixa?' }] },
+      { id: '1042', assunto: 'Despesa fixa de luz com valor variável', status: 'andamento', data: '01/10/2026', cat: 'Sugestão', last: 'Marina: Registramos a sugestão com o time…',
+        msgs: [
+          { me: true, autor: 'Você', hora: '01/10 · 08:12', txt: 'A conta de luz muda todo mês. Dá para a despesa fixa ser gerada sem valor, para eu preencher depois?' },
+          { me: false, autor: 'Marina · Suporte', hora: '01/10 · 10:47', txt: 'Oi, Tony! Hoje a despesa fixa sempre usa o valor cadastrado, mas você pode editar a despesa gerada no mês, como fez em outubro (R$ 187,35).' },
+          { me: false, autor: 'Marina · Suporte', hora: '01/10 · 10:48', txt: 'Registramos a sugestão de valor variável com o time de produto. Aviso aqui quando houver novidade.' },
+          { me: true, autor: 'Você', hora: '01/10 · 11:02', txt: 'Perfeito, obrigado!' }
+        ] },
+      { id: '1038', assunto: 'Exportação para Excel com datas trocadas', status: 'resolvido', data: '22/09/2026', cat: 'Problema', last: 'Você: Funcionou, obrigado.',
+        msgs: [
+          { me: true, autor: 'Você', hora: '22/09 · 09:30', txt: 'Ao exportar para Excel, as datas saem no formato mês/dia.' },
+          { me: false, autor: 'Marina · Suporte', hora: '24/09 · 14:05', txt: 'Obrigada pelo aviso! Corrigimos na atualização de 24/09. Pode exportar de novo?' },
+          { me: true, autor: 'Você', hora: '24/09 · 15:10', txt: 'Funcionou, obrigado.' }
+        ] }
+    ];
+    const AQ = [
+      { id: '1047', assunto: 'Não consigo redefinir a senha', usuario: 'Carla R.', prio: 'Alta', status: 'aberto', resp: '', atual: 'há 12 min', msg: 'Recebo o e-mail de redefinição, mas o link diz que expirou logo depois que clico.' },
+      { id: '1046', assunto: 'Gráfico de categorias não carrega', usuario: 'João P.', prio: 'Média', status: 'aberto', resp: '', atual: 'há 40 min', msg: 'No dashboard, o gráfico de despesas por categoria fica em branco no celular.' },
+      { id: '1045', assunto: 'Dúvida sobre parcelamento no cartão', usuario: 'Tony Albert', prio: 'Baixa', status: 'aberto', resp: '', atual: 'há 1 dia', msg: 'Comprei um celular em 10x no cartão. Lanço como despesa parcelada ou como despesa fixa?' },
+      { id: '1044', assunto: 'Cobrança duplicada na importação', usuario: 'Rafael M.', prio: 'Alta', status: 'andamento', resp: 'Marina', atual: 'há 2 h', msg: 'Importei o extrato e a fatura do cartão entrou duas vezes.' },
+      { id: '1043', assunto: 'Tag sumiu após editar', usuario: 'Mariana S.', prio: 'Média', status: 'andamento', resp: 'Diego', atual: 'há 5 h', msg: 'Renomeei a tag Pets e ela sumiu das despesas antigas.' },
+      { id: '1042', assunto: 'Despesa fixa de luz com valor variável', usuario: 'Tony Albert', prio: 'Baixa', status: 'andamento', resp: 'Marina', atual: 'há 2 dias', msg: 'A conta de luz muda todo mês. Dá para a despesa fixa ser gerada sem valor?' },
+      { id: '1038', assunto: 'Exportação para Excel com datas trocadas', usuario: 'Tony Albert', prio: 'Média', status: 'resolvido', resp: 'Marina', atual: '24/09', msg: 'Ao exportar para Excel, as datas saem no formato mês/dia.' },
+      { id: '1036', assunto: 'Erro ao anexar comprovante', usuario: 'Paula F.', prio: 'Baixa', status: 'resolvido', resp: 'Diego', atual: '20/09', msg: 'O upload do PDF do comprovante falha com arquivos acima de 5 MB.' }
+    ];
+    this._base = { D: D, R: R, F: F, TAGC: TAGC, TAGS: TAGS, CRED: CRED, T: T, AQ: AQ };
+    return this._base;
+  }
+
+  renderVals() {
+    const s = this.state || {};
+    const p = this.props || {};
+    const B = this.base();
+    const TODAY = 3;
+    const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const fmt = (v) => this.fmt(v);
+    const pad = (n) => this.pad(n);
+    const tf = (b) => (b ? 'true' : 'false');
+
+    /* ---------- navegação, tema, período ---------- */
+    const page = s.page || p.page || 'dashboard';
+    let theme = p.theme === 'light' ? 'light' : 'dark';
+    const pref = s.themePref || 'auto';
+    if (pref === 'light' || pref === 'dark') theme = pref;
+    if (pref === 'system') { try { theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; } catch (e) {} }
+    const estado = s.estado || p.estado || 'normal';
+    const ovMap = { nenhum: null, despesa: 'despesa', receita: 'receita', tag: 'tag', paleta: 'palette', excluir: 'excluir', chamado: 'chamado', mais: 'more' };
+    const overlay = s.overlay !== undefined ? s.overlay : (ovMap[p.overlay || 'nenhum'] || null);
+    const demo = p.demo || 'nenhum';
+    const isAdmin = p.admin !== false;
+    const PAGES = ['dashboard', 'receitas', 'despesas', 'fixas', 'credores', 'tags', 'ia', 'suporte', 'admin', 'config'];
+    const TITLES = { dashboard: 'Dashboard', receitas: 'Receitas', despesas: 'Despesas', fixas: 'Despesas fixas', credores: 'Credores', tags: 'Tags', ia: 'Análise com IA', suporte: 'Suporte', admin: 'Admin Suporte', config: 'Configurações' };
+    const go = {}, nav = {}, cur = {}, is = {};
+    PAGES.forEach((k) => {
+      go[k] = () => { this.setState({ page: k, overlay: null, menu: null }); try { window.scrollTo(0, 0); } catch (e) {} };
+      nav[k] = page === k ? 'is-active' : '';
+      cur[k] = page === k ? 'page' : undefined;
+      is[k] = page === k;
+    });
+    nav.more = ['fixas', 'credores', 'tags', 'ia', 'suporte', 'admin', 'config'].indexOf(page) >= 0 ? 'is-active' : '';
+    const m = s.m !== undefined ? s.m : 9;
+    const y = s.y !== undefined ? s.y : 2026;
+    const prevMonth = () => this.setState(m === 0 ? { m: 11, y: y - 1 } : { m: m - 1, y: y });
+    const nextMonth = () => this.setState(m === 11 ? { m: 0, y: y + 1 } : { m: m + 1, y: y });
+    const close = () => this.setState({ overlay: null, menu: null });
+
+    /* ---------- despesas ---------- */
+    const paidMap = s.paid || {};
+    const del = s.del || {};
+    const all = B.D.concat(s.added || []).filter((d) => !del[d.id]).map((d) => {
+      const pago = paidMap[d.id] !== undefined ? paidMap[d.id] : d.pago;
+      const status = pago ? 'pago' : (d.dia < TODAY ? 'atrasado' : 'pendente');
+      return Object.assign({}, d, { pago: pago, status: status });
+    });
+    const setPaid = (id, v, item) => {
+      this.setState((st) => ({ paid: Object.assign({}, st.paid || {}, { [id]: v }) }));
+      this.showToast(v ? 'Marcada como paga' : 'Marcada como pendente', item);
+    };
+    const sum = (arr) => arr.reduce((a, d) => a + d.valor, 0);
+    const despTotal = sum(all);
+    const pendList = all.filter((d) => !d.pago);
+    const pendTotal = sum(pendList);
+    const lateList = all.filter((d) => d.status === 'atrasado');
+    const REC = 8450;
+
+    const k = {
+      saldo: fmt(REC - despTotal), saldoCls: REC - despTotal >= 0 ? 't-income' : 't-expense',
+      rec: fmt(REC), desp: fmt(despTotal), pend: fmt(pendTotal),
+      dSaldo: this.delta(REC - despTotal, 2491.6, true),
+      dRec: this.delta(REC, 8110, true),
+      dDesp: this.delta(despTotal, 5618.4, false),
+      dPend: this.delta(pendTotal || 0.01, 1659.15, false),
+      pendCount: pendList.length + (pendList.length === 1 ? ' conta' : ' contas') + (lateList.length ? ' · ' + lateList.length + ' atrasada' : '')
+    };
+    const late = {
+      has: lateList.length > 0,
+      title: lateList.length === 1 ? '1 conta atrasada' : lateList.length + ' contas atrasadas',
+      text: lateList.map((d) => d.item + ' (' + fmt(d.valor) + ') venceu em ' + pad(d.dia) + '/10').join(' · '),
+      see: () => this.setState({ page: 'despesas', fStatus: 'atrasado', overlay: null })
+    };
+    const up = pendList.slice().sort((a, b) => a.dia - b.dia).slice(0, 5).map((d) => {
+      const lateD = d.dia < TODAY;
+      const diff = d.dia - TODAY;
+      return {
+        item: d.item, dia: pad(d.dia), valorFmt: fmt(d.valor), hasParcela: !!d.parcela, parcela: d.parcela || '',
+        when: lateD ? 'Atrasada há ' + (TODAY - d.dia) + (TODAY - d.dia === 1 ? ' dia' : ' dias') : diff === 0 ? 'Vence hoje' : 'Vence em ' + diff + (diff === 1 ? ' dia' : ' dias'),
+        whenCls: lateD ? 't-expense' : diff <= 5 ? 't-warning' : '',
+        boxCls: lateD ? 'late' : '',
+        pay: () => setPaid(d.id, true, d.item)
+      };
+    });
+
+    /* gráfico + meses */
+    const yr = { label: String(s.chartYear || 2026), is26: (s.chartYear || 2026) === 2026, is25: s.chartYear === 2025, p26: tf((s.chartYear || 2026) === 2026), p25: tf(s.chartYear === 2025), set25: () => this.setState({ chartYear: 2025 }), set26: () => this.setState({ chartYear: 2026 }) };
+    const MD = [[7900, 6120.4], [7900, 5480.15], [8350, 6910.8], [9600, 5870.3], [7900, 7250.9], [8100, 5640.25], [7900, 6380], [8900, 5920.6], [8110, 5618.4], [REC, despTotal], null, null];
+    const quarters = [0, 1, 2, 3].map((qi) => {
+      let qs = 0;
+      const months = [0, 1, 2].map((j) => {
+        const mi = qi * 3 + j;
+        const d = MD[mi];
+        if (!d) {
+          return { nome: MESES[mi], cls: 'is-future', isFuture: true, isCurrent: false, current: undefined, saldo: '—', saldoCls: '', l1k: 'Fixas previstas', l1: fmt(3307.7), l1c: '', l2k: '', l2: '', l2c: '' };
+        }
+        const sd = d[0] - d[1];
+        qs += sd;
+        return { nome: MESES[mi], cls: mi === 9 ? 'is-current' : '', isCurrent: mi === 9, isFuture: false, current: mi === 9 ? 'date' : undefined, saldo: (sd >= 0 ? '+' : '') + fmt(sd), saldoCls: sd >= 0 ? 't-income' : 't-expense', l1k: 'Receita', l1: fmt(d[0]), l1c: '', l2k: 'Despesa', l2: fmt(d[1]), l2c: '' };
+      });
+      return { label: (qi + 1) + 'º trimestre', saldo: (qs >= 0 ? '+' : '') + fmt(qs), months: months };
+    });
+
+    /* ---------- despesas fixas ---------- */
+    const fxMap = s.fx || {};
+    const fixas = B.F.map((f) => Object.assign({}, f, { ativo: fxMap[f.id] !== undefined ? fxMap[f.id] : f.ativo }));
+    const fxAtivas = fixas.filter((f) => f.ativo);
+    const fxTotal = sum(fxAtivas);
+    const fx = {
+      total: fmt(fxTotal),
+      resumo: fxAtivas.length + ' ativas · ' + (fxTotal / 8311 * 100).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + '% da receita média mensal',
+      ativas: fxAtivas.length, inativas: fixas.length - fxAtivas.length,
+      inativasTotal: fmt(sum(fixas.filter((f) => !f.ativo))),
+      top: fxAtivas.slice().sort((a, b) => b.valor - a.valor).slice(0, 4).map((f) => ({ nome: f.nome, dia: f.dia, valorFmt: fmt(f.valor), tagC: B.TAGC[f.tag] })),
+      rows: fixas.map((f) => ({
+        id: f.id, nome: f.nome, valorFmt: fmt(f.valor), dia: 'Dia ' + f.dia, tag: f.tag, tagC: B.TAGC[f.tag], credor: f.credor || '—',
+        vigencia: f.inicio + ' – ' + (f.fim || 'sem fim'), ativo: f.ativo, ativoStr: tf(f.ativo), rowCls: f.ativo ? '' : 't-muted',
+        statusTxt: f.ativo ? 'Ativa' : 'Pausada', statusCls: f.ativo ? 'income' : 'outline',
+        toggle: () => { this.setState((st) => ({ fx: Object.assign({}, st.fx || {}, { [f.id]: !f.ativo }) })); this.showToast(f.ativo ? 'Despesa fixa pausada' : 'Despesa fixa ativada', f.nome + ' · ' + fmt(f.valor) + '/mês'); }
+      }))
+    };
+
+    /* ---------- credores ---------- */
+    const credNames = ['Nubank', 'Itaú', 'Aluguel', ''];
+    const credSel = s.credSel !== undefined ? s.credSel : 'Nubank';
+    const credList = credNames.map((n) => {
+      const ds = all.filter((d) => (d.credor || '') === n);
+      const total = sum(ds), pago = sum(ds.filter((d) => d.pago)), aberto = total - pago;
+      const meta = B.CRED[n];
+      return {
+        key: n, nome: n || 'Sem credor', ini: meta.ini, contato: meta.contato, fone: meta.fone || 'Sem telefone', email: meta.email || 'Sem e-mail',
+        hasFone: !!meta.fone, total: total || 0.01, pago: pago, totalFmt: fmt(total), pagoFmt: fmt(pago), abertoFmt: fmt(aberto),
+        abertoTxt: aberto > 0 ? fmt(aberto) + ' em aberto' : 'Quitado', abertoCls: aberto > 0 ? 't-warning' : 't-income',
+        pctTxt: (total ? Math.round(pago / total * 100) : 0) + '%', count: ds.length + (ds.length === 1 ? ' despesa' : ' despesas'),
+        barCls: aberto > 0 ? '' : '', cls: credSel === n ? 'is-active' : '', pressed: tf(credSel === n),
+        pick: () => this.setState({ credSel: n }),
+        rows: ds.map((d) => ({ item: d.item, data: pad(d.dia) + '/10/2026', valorFmt: fmt(d.valor), isPago: d.status === 'pago', isPend: d.status === 'pendente', isLate: d.status === 'atrasado', parcela: d.parcela || '', hasParcela: !!d.parcela }))
+      };
+    });
+    const cred = { list: credList, sel: credList.filter((c) => c.key === credSel)[0] || credList[0] };
+
+    /* ---------- tabela de despesas ---------- */
+    const q = s.q !== undefined ? s.q : '';
+    const fStatus = s.fStatus || (demo === 'filtros' ? 'pendente' : 'todos');
+    const fTag = s.fTag !== undefined ? s.fTag : (demo === 'filtros' ? 'Moradia' : '');
+    const fCred = s.fCred !== undefined ? s.fCred : '';
+    const sort = s.sort || { key: 'dia', dir: 1 };
+    const selMap = s.sel || (demo === 'selecao' ? { d3: true, d10: true, d14: true } : {});
+    const ql = q.trim().toLowerCase();
+    const ORD = { atrasado: 0, pendente: 1, pago: 2 };
+    let vis = all.filter((d) => {
+      if (ql && (d.item + ' ' + d.tag + ' ' + d.credor).toLowerCase().indexOf(ql) < 0) return false;
+      if (fStatus === 'pendente' && d.pago) return false;
+      if (fStatus === 'pago' && !d.pago) return false;
+      if (fStatus === 'atrasado' && d.status !== 'atrasado') return false;
+      if (fTag && d.tag !== fTag) return false;
+      if (fCred === '__none' && d.credor) return false;
+      if (fCred && fCred !== '__none' && d.credor !== fCred) return false;
+      return true;
+    });
+    vis = vis.slice().sort((a, b) => {
+      let r = 0;
+      if (sort.key === 'item') r = a.item.localeCompare(b.item, 'pt-BR');
+      else if (sort.key === 'valor') r = a.valor - b.valor;
+      else if (sort.key === 'status') r = ORD[a.status] - ORD[b.status];
+      else r = a.dia - b.dia || a.item.localeCompare(b.item, 'pt-BR');
+      return r * sort.dir;
+    });
+    const sortBy = (key) => () => this.setState({ sort: { key: key, dir: sort.key === key ? -sort.dir : 1 } });
+    const srt = {};
+    ['item', 'valor', 'dia', 'status'].forEach((key) => {
+      srt[key] = sort.key === key ? ('on' + (sort.dir < 0 ? ' desc' : '')) : '';
+      srt[key + 'Aria'] = sort.key === key ? (sort.dir > 0 ? 'ascending' : 'descending') : 'none';
+      srt[key + 'By'] = sortBy(key);
+    });
+    const menuId = s.menu || null;
+    const selIds = vis.filter((d) => selMap[d.id]).map((d) => d.id);
+    const askDelete = (ids) => this.setState({ overlay: 'excluir', delIds: ids, menu: null });
+    const STATUS_TXT = { pago: 'Pago', pendente: 'Pendente', atrasado: 'Atrasado' };
+    const rows = vis.map((d) => ({
+      id: d.id, item: d.item, valorFmt: fmt(d.valor), data: pad(d.dia) + '/10/2026', dataCurta: pad(d.dia) + '/10',
+      tag: d.tag, tagC: B.TAGC[d.tag] || 'c7', credor: d.credor || '—',
+      hasParcela: !!d.parcela, parcela: d.parcela || '', fixa: !!d.fixa,
+      isPago: d.status === 'pago', isPend: d.status === 'pendente', isLate: d.status === 'atrasado',
+      statusTxt: STATUS_TXT[d.status], statusAria: d.item + ': ' + STATUS_TXT[d.status] + '. Clique para marcar como ' + (d.pago ? 'pendente' : 'paga'),
+      sel: !!selMap[d.id], rowCls: selMap[d.id] ? 'is-selected' : '',
+      onSel: () => this.setState((st) => { const cur0 = st.sel || selMap; return { sel: Object.assign({}, cur0, { [d.id]: !cur0[d.id] }) }; }),
+      toggle: () => setPaid(d.id, !d.pago, d.item),
+      menuOpen: menuId === d.id,
+      openMenu: () => this.setState({ menu: menuId === d.id ? null : d.id }),
+      mPay: () => { this.setState({ menu: null }); setPaid(d.id, !d.pago, d.item); },
+      mPayTxt: d.pago ? 'Marcar como pendente' : 'Marcar como pago',
+      mEdit: () => this.setState({ menu: null, overlay: 'despesa', nd: { item: d.item, valor: this.money(d.valor), dia: d.dia, tag: d.tag, credor: d.credor, status: d.pago ? 'pago' : 'pendente', parcelado: false, parcelas: '2', err: {}, cal: false } }),
+      mDup: () => { this.setState((st) => ({ menu: null, added: (st.added || []).concat([Object.assign({}, d, { id: 'n' + Date.now(), item: d.item + ' (cópia)' })]) })); this.showToast('Despesa duplicada', d.item); },
+      mDel: () => askDelete([d.id])
+    }));
+    const visTotal = sum(vis), visPago = sum(vis.filter((d) => d.pago));
+    const allSel = vis.length > 0 && selIds.length === vis.length;
+    const STATUS_LBL = { pendente: 'Pendentes', pago: 'Pagas', atrasado: 'Atrasadas' };
+    const chips = [];
+    if (fStatus !== 'todos') chips.push({ k: 'Status', v: STATUS_LBL[fStatus], rm: () => this.setState({ fStatus: 'todos' }) });
+    if (fTag) chips.push({ k: 'Tag', v: fTag, rm: () => this.setState({ fTag: '' }) });
+    if (fCred) chips.push({ k: 'Credor', v: fCred === '__none' ? 'Sem credor' : fCred, rm: () => this.setState({ fCred: '' }) });
+    if (ql) chips.push({ k: 'Busca', v: '“' + q + '”', rm: () => this.setState({ q: '' }) });
+    const dt = {
+      q: q, onQ: (e) => this.setState({ q: e.target.value }),
+      fStatus: fStatus, onStatus: (e) => this.setState({ fStatus: e.target.value }),
+      fTag: fTag, onTag: (e) => this.setState({ fTag: e.target.value }),
+      fCred: fCred, onCred: (e) => this.setState({ fCred: e.target.value }),
+      chips: chips, hasChips: chips.length > 0,
+      clear: () => this.setState({ fStatus: 'todos', fTag: '', fCred: '', q: '' }),
+      rows: rows, empty: rows.length === 0, hasRows: rows.length > 0,
+      allSel: allSel, allAria: allSel ? 'Desmarcar todas' : 'Selecionar todas',
+      onSelAll: () => { const nx = {}; if (!allSel) vis.forEach((d) => { nx[d.id] = true; }); this.setState({ sel: nx }); },
+      selCount: selIds.length, hasSel: selIds.length > 0,
+      selTxt: selIds.length + (selIds.length === 1 ? ' selecionada' : ' selecionadas') + ' · ' + fmt(sum(vis.filter((d) => selMap[d.id]))),
+      markPaid: () => { const pm = Object.assign({}, paidMap); selIds.forEach((id) => { pm[id] = true; }); this.setState({ paid: pm, sel: {} }); this.showToast(selIds.length + ' despesas marcadas como pagas', fmt(sum(vis.filter((d) => selMap[d.id])))); },
+      bulkDel: () => askDelete(selIds),
+      clearSel: () => this.setState({ sel: {} }),
+      count: vis.length + ' de ' + all.length + ' despesas',
+      pager: vis.length ? 'Mostrando 1–' + vis.length + ' de ' + vis.length : 'Nenhum resultado',
+      total: fmt(visTotal), pago: fmt(visPago), pend: fmt(visTotal - visPago),
+      sumTotal: fmt(despTotal), sumPago: fmt(despTotal - pendTotal), sumPend: fmt(pendTotal),
+      sumCount: all.length + ' lançamentos', pendCount: pendList.length + ' pendentes' + (lateList.length ? ' · ' + lateList.length + ' atrasada' : ''),
+      srt: srt,
+      closeMenu: () => this.setState({ menu: null }),
+      loading: estado === 'carregando', vazio: estado === 'vazio', erro: estado === 'erro', normal: estado === 'normal',
+      retry: () => { this.setState({ estado: 'carregando' }); setTimeout(() => this.setState({ estado: 'normal' }), 1200); },
+      skel: [1, 2, 3, 4, 5, 6, 7]
+    };
+    const delIds = s.delIds || selIds;
+    const dlg = {
+      title: delIds.length === 1 ? 'Excluir esta despesa?' : 'Excluir ' + delIds.length + ' despesas?',
+      text: delIds.length === 1 ? ((all.filter((d) => d.id === delIds[0])[0] || {}).item || 'A despesa') + ' será removida de outubro de 2026. Essa ação não pode ser desfeita.' : 'As despesas selecionadas serão removidas de outubro de 2026. Essa ação não pode ser desfeita.',
+      confirm: () => {
+        const dm = Object.assign({}, del); delIds.forEach((id) => { dm[id] = true; });
+        this.setState({ del: dm, sel: {}, overlay: null, delIds: null });
+        this.showToast(delIds.length === 1 ? 'Despesa excluída' : delIds.length + ' despesas excluídas', 'Removida' + (delIds.length === 1 ? '' : 's') + ' de outubro de 2026');
+      }
+    };
+
+    /* ---------- receitas ---------- */
+    const recEdit = s.recEdit || {};
+    const recs = B.R.concat(s.recAdded || []).map((r) => Object.assign({}, r, recEdit[r.id] || {}));
+    const recTotal = sum(recs), recRecebido = sum(recs.filter((r) => r.recebido));
+    const RC0 = { id: null, fonte: '', valor: '', data: '03/10/2026', tag: '', recebido: false, err: {} };
+    const seedRc = (r) => ({ id: r.id, fonte: r.fonte, valor: this.money(r.valor), data: pad(r.dia) + '/10/2026', tag: r.tag, recebido: r.recebido, err: {} });
+    const rcState = s.rc || (overlay === 'receita' && p.overlay === 'receita' ? seedRc(recs[1]) : RC0);
+    const rcSet = (patch) => this.setState((st) => ({ rc: Object.assign({}, rcState, st.rc || {}, patch) }));
+    const rq = s.rq !== undefined ? s.rq : '';
+    const rec = {
+      total: fmt(recTotal), recebido: fmt(recRecebido), aReceber: fmt(recTotal - recRecebido),
+      q: rq, onQ: (e) => this.setState({ rq: e.target.value }),
+      rows: recs.filter((r) => !rq || (r.fonte + ' ' + r.tag).toLowerCase().indexOf(rq.toLowerCase()) >= 0).map((r) => ({
+        fonte: r.fonte, valorFmt: fmt(r.valor), data: pad(r.dia) + '/10/2026', tag: r.tag, tagC: B.TAGC[r.tag], recebido: r.recebido, aReceber: !r.recebido,
+        statusTxt: r.recebido ? 'Recebido' : 'A receber',
+        edit: () => this.setState({ overlay: 'receita', rc: seedRc(r) })
+      })),
+      form: Object.assign({}, rcState, {
+        title: rcState.id ? 'Editar receita' : 'Nova receita',
+        onFonte: (e) => rcSet({ fonte: e.target.value, err: {} }),
+        onValor: (e) => rcSet({ valor: this.maskMoney(e.target.value), err: {} }),
+        onData: (e) => rcSet({ data: e.target.value }),
+        onTag: (e) => rcSet({ tag: e.target.value }),
+        pRec: tf(rcState.recebido), pPrev: tf(!rcState.recebido),
+        setRec: () => rcSet({ recebido: true }), setPrev: () => rcSet({ recebido: false }),
+        errFonte: (rcState.err || {}).fonte || '', errValor: (rcState.err || {}).valor || '',
+        invFonte: tf(!!(rcState.err || {}).fonte), invValor: tf(!!(rcState.err || {}).valor),
+        isEdit: !!rcState.id,
+        save: () => {
+          const err = {};
+          if (!rcState.fonte.trim()) err.fonte = 'Informe a fonte da receita.';
+          if (!(this.parseMoney(rcState.valor) > 0)) err.valor = 'Informe um valor maior que zero.';
+          if (Object.keys(err).length) { rcSet({ err: err }); return; }
+          const dia = parseInt(String(rcState.data).slice(0, 2), 10) || TODAY;
+          const patch = { fonte: rcState.fonte.trim(), valor: this.parseMoney(rcState.valor), dia: dia, tag: rcState.tag || 'Freelance', recebido: rcState.recebido };
+          if (rcState.id) this.setState({ recEdit: Object.assign({}, recEdit, { [rcState.id]: patch }), overlay: null, rc: null });
+          else this.setState({ recAdded: (s.recAdded || []).concat([Object.assign({ id: 'nr' + Date.now() }, patch)]), overlay: null, rc: null });
+          this.showToast(rcState.id ? 'Receita atualizada' : 'Receita adicionada', patch.fonte + ' · ' + fmt(patch.valor));
+        },
+        remove: () => { this.setState({ overlay: null, rc: null }); this.showToast('Receita excluída', rcState.fonte); }
+      })
+    };
+
+    /* ---------- nova despesa (form) ---------- */
+    const ND0 = { item: '', valor: '', dia: TODAY, tag: '', credor: '', status: 'pendente', parcelado: false, parcelas: '2', err: {}, cal: false };
+    const ndS = Object.assign({}, ND0, s.nd || {});
+    const ndSet = (patch) => this.setState((st) => ({ nd: Object.assign({}, ND0, st.nd || {}, patch) }));
+    const clearErr = (key) => { const e = Object.assign({}, ndS.err || {}); delete e[key]; return e; };
+    const cal = [];
+    for (let i = 0; i < 4; i++) cal.push({ label: '', cls: 'is-blank', blank: true, aria: 'vazio', pick: null });
+    for (let d = 1; d <= 31; d++) cal.push({ label: String(d), cls: (d === ndS.dia ? 'is-selected ' : '') + (d === TODAY ? 'is-today' : ''), blank: false, aria: d + ' de outubro de 2026', pick: () => ndSet({ dia: d, cal: false }) });
+    const nParc = parseInt(ndS.parcelas, 10) || 1;
+    const nd = {
+      item: ndS.item, valor: ndS.valor, tag: ndS.tag, credor: ndS.credor, parcelas: ndS.parcelas, parcelado: ndS.parcelado,
+      diaLabel: pad(ndS.dia) + '/10/2026', calOpen: ndS.cal, calStr: tf(ndS.cal), cal: cal,
+      errItem: (ndS.err || {}).item || '', errValor: (ndS.err || {}).valor || '', errTag: (ndS.err || {}).tag || '',
+      invItem: tf(!!(ndS.err || {}).item), invValor: tf(!!(ndS.err || {}).valor), invTag: tf(!!(ndS.err || {}).tag),
+      pPend: tf(ndS.status === 'pendente'), pPago: tf(ndS.status === 'pago'), parcStr: tf(ndS.parcelado),
+      parcHint: nParc > 1 && this.parseMoney(ndS.valor) > 0 ? nParc + ' parcelas de R$ ' + this.money(this.parseMoney(ndS.valor)) + ', de outubro/2026 a ' + MESES[(9 + nParc - 1) % 12].toLowerCase() + '/' + (2026 + Math.floor((9 + nParc - 1) / 12)) : 'Informe o valor de cada parcela no campo Valor.',
+      onItem: (e) => ndSet({ item: e.target.value, err: clearErr('item') }),
+      onValor: (e) => ndSet({ valor: this.maskMoney(e.target.value), err: clearErr('valor') }),
+      onTag: (e) => ndSet({ tag: e.target.value, err: clearErr('tag') }),
+      onCredor: (e) => ndSet({ credor: e.target.value }),
+      onParcelas: (e) => ndSet({ parcelas: e.target.value.replace(/\D/g, '').slice(0, 3) }),
+      setPend: () => ndSet({ status: 'pendente' }), setPago: () => ndSet({ status: 'pago' }),
+      toggleParc: () => ndSet({ parcelado: !ndS.parcelado }),
+      toggleCal: () => ndSet({ cal: !ndS.cal }),
+      save: () => {
+        const err = {};
+        if (!ndS.item.trim()) err.item = 'Informe o nome da despesa.';
+        if (!(this.parseMoney(ndS.valor) > 0)) err.valor = 'Informe um valor maior que zero.';
+        if (!ndS.tag) err.tag = 'Escolha uma tag.';
+        if (Object.keys(err).length) { ndSet({ err: err }); return; }
+        const novo = { id: 'n' + Date.now(), item: ndS.item.trim(), valor: this.parseMoney(ndS.valor), dia: ndS.dia, tag: ndS.tag, credor: ndS.credor, pago: ndS.status === 'pago', parcela: ndS.parcelado && nParc > 1 ? '1/' + nParc : '' };
+        this.setState((st) => ({ added: (st.added || []).concat([novo]), overlay: null, nd: null }));
+        this.showToast('Despesa adicionada', novo.item + ' · ' + fmt(novo.valor) + ' · ' + pad(novo.dia) + '/10');
+      }
+    };
+
+    /* ---------- tags ---------- */
+    const TG0 = s.tgTouched ? { nome: '', tipo: 'despesa', cor: 'c2' } : { nome: 'Assinaturas', tipo: 'despesa', cor: 'c6' };
+    const tgS = Object.assign({}, TG0, s.tg || {});
+    const tgSet = (patch) => this.setState((st) => ({ tg: Object.assign({}, TG0, st.tg || {}, patch), tgTouched: true }));
+    const tagRow = (t) => {
+      const ds = t.tipo === 'despesa' ? all.filter((d) => d.tag === t.nome) : recs.filter((r) => r.tag === t.nome);
+      return { nome: t.nome, c: B.TAGC[t.nome], qtd: ds.length + (ds.length === 1 ? ' lançamento' : ' lançamentos'), total: fmt(sum(ds)), edit: () => this.setState({ overlay: 'tag', tg: { nome: t.nome, tipo: t.tipo, cor: B.TAGC[t.nome] }, tgTouched: true }) };
+    };
+    const tags = {
+      desp: B.TAGS.filter((t) => t.tipo === 'despesa').map(tagRow),
+      rec: B.TAGS.filter((t) => t.tipo === 'receita').map(tagRow),
+      form: {
+        nome: tgS.nome, onNome: (e) => tgSet({ nome: e.target.value }),
+        pDesp: tf(tgS.tipo === 'despesa'), pRec: tf(tgS.tipo === 'receita'),
+        setDesp: () => tgSet({ tipo: 'despesa' }), setRec: () => tgSet({ tipo: 'receita' }),
+        cor: tgS.cor, preview: tgS.nome || 'Nome da tag',
+        swatches: ['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7'].map((c, i) => ({ c: c, pressed: tf(tgS.cor === c), aria: 'Cor ' + (i + 1), pick: () => tgSet({ cor: c }) })),
+        save: () => { this.setState({ overlay: null, tg: null, tgTouched: true }); this.showToast('Tag salva', (tgS.nome || 'Nova tag') + ' · ' + (tgS.tipo === 'despesa' ? 'Despesa' : 'Receita')); }
+      },
+      openNew: () => this.setState({ overlay: 'tag', tg: { nome: '', tipo: 'despesa', cor: 'c2' }, tgTouched: true })
+    };
+
+    /* ---------- IA ---------- */
+    const iaQ = s.iaQ !== undefined ? s.iaQ : '';
+    const ia = {
+      q: iaQ, onQ: (e) => this.setState({ iaQ: e.target.value }),
+      sug: ['Onde gastei mais este mês?', 'Quanto paguei de juros em 2026?', 'Quais despesas fixas posso cortar?', 'Compare outubro com setembro'].map((t) => ({ t: t, pick: () => this.setState({ iaQ: t }) })),
+      send: () => { if (!iaQ.trim()) return; this.setState({ iaQ: '' }); this.showToast('Pergunta enviada', iaQ); }
+    };
+
+    /* ---------- suporte ---------- */
+    const ST = { aberto: { txt: 'Aberto', cls: 'info' }, andamento: { txt: 'Em andamento', cls: 'warning' }, resolvido: { txt: 'Resolvido', cls: 'income' } };
+    const tSel = s.tSel || '1042';
+    const tickets = B.T.map((t) => Object.assign({}, t, { stTxt: ST[t.status].txt, stCls: ST[t.status].cls, cls: t.id === tSel ? 'is-active' : '', cur: t.id === tSel ? 'true' : undefined, pick: () => this.setState({ tSel: t.id }) }));
+    const tDet = tickets.filter((t) => t.id === tSel)[0] || tickets[0];
+    const CH0 = s.chTouched ? { assunto: '', cat: 'Dúvida', desc: '' } : { assunto: 'Importar extrato do banco', cat: 'Sugestão', desc: 'Seria ótimo importar o extrato em OFX ou CSV para não digitar as despesas do cartão uma a uma.' };
+    const chS = Object.assign({}, CH0, s.ch || {});
+    const chSet = (patch) => this.setState((st) => ({ ch: Object.assign({}, CH0, st.ch || {}, patch), chTouched: true }));
+    const sup = {
+      tickets: tickets, det: tDet, msgs: tDet.msgs.map((mm) => Object.assign({}, mm, { cls: mm.me ? 'me' : 'them', them: !mm.me })),
+      isResolved: tDet.status === 'resolvido', notResolved: tDet.status !== 'resolvido',
+      reply: s.reply || '', onReply: (e) => this.setState({ reply: e.target.value }),
+      send: () => { if (!(s.reply || '').trim()) return; this.setState({ reply: '' }); this.showToast('Mensagem enviada', 'Chamado #' + tDet.id); },
+      openNew: () => this.setState({ overlay: 'chamado', ch: { assunto: '', cat: 'Dúvida', desc: '' }, chTouched: true }),
+      form: {
+        assunto: chS.assunto, cat: chS.cat, desc: chS.desc,
+        onAssunto: (e) => chSet({ assunto: e.target.value }), onCat: (e) => chSet({ cat: e.target.value }), onDesc: (e) => chSet({ desc: e.target.value }),
+        send: () => { this.setState({ overlay: null, ch: null, chTouched: true }); this.showToast('Chamado #1048 aberto', 'Respondemos em até 1 dia útil.'); }
+      }
+    };
+
+    /* ---------- admin ---------- */
+    const aStatus = s.aStatus || 'todos';
+    const aSel = s.aSel || '1047';
+    const PRIO = { 'Alta': 'expense', 'Média': 'warning', 'Baixa': 'outline' };
+    const aCount = (st) => B.AQ.filter((t) => st === 'todos' || t.status === st).length;
+    const aRows = B.AQ.filter((t) => aStatus === 'todos' || t.status === aStatus).map((t) => Object.assign({}, t, {
+      stTxt: ST[t.status].txt, stCls: ST[t.status].cls, prioCls: PRIO[t.prio], respTxt: t.resp || 'Sem responsável', respCls: t.resp ? '' : 't-muted',
+      cls: t.id === aSel ? 'is-selected' : '', pick: () => this.setState({ aSel: t.id })
+    }));
+    const aDet = B.AQ.filter((t) => t.id === aSel)[0] || B.AQ[0];
+    const adm = {
+      rows: aRows,
+      tabs: [['todos', 'Todos'], ['aberto', 'Abertos'], ['andamento', 'Em andamento'], ['resolvido', 'Resolvidos']].map((x) => ({ label: x[1], n: aCount(x[0]), pressed: tf(aStatus === x[0]), pick: () => this.setState({ aStatus: x[0] }) })),
+      det: Object.assign({}, aDet, { ini: aDet.usuario.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase(), stTxt: ST[aDet.status].txt, stCls: ST[aDet.status].cls, prioCls: PRIO[aDet.prio] }),
+      resp: s.aResp !== undefined ? s.aResp : (aDet.resp || ''), onResp: (e) => this.setState({ aResp: e.target.value }),
+      st: s.aSt || aDet.status, onSt: (e) => this.setState({ aSt: e.target.value }),
+      reply: s.aReply || '', onReply: (e) => this.setState({ aReply: e.target.value }),
+      send: () => { this.setState({ aReply: '' }); this.showToast('Resposta enviada', 'Chamado #' + aDet.id + ' · ' + aDet.usuario); },
+      abertos: aCount('aberto')
+    };
+
+    /* ---------- configurações ---------- */
+    const prefShown = pref === 'auto' ? theme : pref;
+    const cfg = {
+      light: tf(prefShown === 'light'), dark: tf(prefShown === 'dark'), system: tf(prefShown === 'system'),
+      setLight: () => { this.setState({ themePref: 'light' }); this.showToast('Tema claro aplicado'); },
+      setDark: () => { this.setState({ themePref: 'dark' }); this.showToast('Tema escuro aplicado'); },
+      setSystem: () => { this.setState({ themePref: 'system' }); this.showToast('Tema do sistema aplicado'); },
+      collapsed: tf(!!s.collapsed), toggleCollapsed: () => this.setState({ collapsed: !s.collapsed })
+    };
+
+    /* ---------- command palette ---------- */
+    const palQ = s.palQ !== undefined ? s.palQ : '';
+    const pq = palQ.trim().toLowerCase();
+    const match = (t) => !pq || t.toLowerCase().indexOf(pq) >= 0;
+    const run = (fn) => () => { fn(); this.setState({ palQ: '' }); };
+    const actions = [
+      { label: 'Nova despesa', kbd: 'N D', run: run(() => this.setState({ overlay: 'despesa', nd: null })) },
+      { label: 'Nova receita', kbd: 'N R', run: run(() => this.setState({ overlay: 'receita', rc: RC0 })) },
+      { label: 'Nova tag', kbd: 'N T', run: run(() => this.setState({ page: 'tags', overlay: 'tag', tg: { nome: '', tipo: 'despesa', cor: 'c2' }, tgTouched: true })) },
+      { label: theme === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro', kbd: 'T', run: run(() => this.setState({ themePref: theme === 'dark' ? 'light' : 'dark', overlay: null })) }
+    ].filter((a) => match(a.label)).map((a, i) => Object.assign(a, { cls: i === 0 && !pq ? 'is-active' : '' }));
+    const navCmds = PAGES.filter((k2) => k2 !== 'admin' || isAdmin).map((k2, i) => ({ label: TITLES[k2], kbd: 'G ' + (i + 1), run: run(() => this.setState({ page: k2, overlay: null })) })).filter((a) => match(a.label));
+    const items = pq ? all.filter((d) => d.item.toLowerCase().indexOf(pq) >= 0).slice(0, 5).map((d) => ({ label: d.item + ' · ' + pad(d.dia) + '/10', valor: fmt(d.valor), run: run(() => this.setState({ page: 'despesas', q: d.item, overlay: null })) })) : [];
+    const pal = {
+      q: palQ, onQ: (e) => this.setState({ palQ: e.target.value }),
+      onKey: (e) => { if (e.key === 'Escape') { e.preventDefault(); this.setState({ overlay: null, palQ: '' }); } },
+      actions: actions, nav: navCmds, items: items,
+      hasActions: actions.length > 0, hasNav: navCmds.length > 0, hasItems: items.length > 0,
+      none: !actions.length && !navCmds.length && !items.length
+    };
+
+    const ov = { despesa: overlay === 'despesa', receita: overlay === 'receita', tag: overlay === 'tag', palette: overlay === 'palette', excluir: overlay === 'excluir', chamado: overlay === 'chamado', more: overlay === 'more' };
+
+    return {
+      theme: theme, isDark: theme === 'dark', isLight: theme === 'light', themeLabel: theme === 'dark' ? 'escuro' : 'claro',
+      appClass: s.collapsed ? 'is-collapsed' : '', collapseLabel: s.collapsed ? 'Expandir menu' : 'Recolher menu',
+      toggleSidebar: () => this.setState({ collapsed: !s.collapsed }),
+      isAdmin: isAdmin, go: go, nav: nav, cur: cur, is: is, title: TITLES[page],
+      periodLong: MESES[m] + ' ' + y, periodShort: MESES[m].slice(0, 3) + ' ' + String(y).slice(2), periodLower: MESES[m].toLowerCase() + ' de ' + y,
+      prevMonth: prevMonth, nextMonth: nextMonth,
+      openPalette: () => this.setState({ overlay: 'palette', palQ: '' }),
+      openDespesa: () => this.setState({ overlay: 'despesa', nd: null }),
+      openReceitaNew: () => this.setState({ overlay: 'receita', rc: RC0 }),
+      openMore: () => this.setState({ overlay: 'more' }),
+      closeOverlay: close, ov: ov,
+      k: k, late: late, up: { items: up, none: up.length === 0 }, yr: yr, quarters: quarters, fx: fx, cred: cred,
+      dt: dt, dlg: dlg, rec: rec, nd: nd, tags: tags, ia: ia, sup: sup, adm: adm, cfg: cfg, pal: pal,
+      toast: s.toast || { title: '', desc: '' }, hasToast: !!s.toast, closeToast: () => this.setState({ toast: null })
+    };
+  }
+}
+</script>
+</body>
+</html>

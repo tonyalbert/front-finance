@@ -1,170 +1,125 @@
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useForm, useWatch } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 import { toast } from "sonner"
-import { ArrowRight, Wallet } from "lucide-react"
+import { AlertCircle, Loader2, Mail } from "lucide-react"
 
 import { useAuth } from "@/hooks/use-auth"
-import { Spinner } from "@/components/ui/spinner"
+import { AuthHeading, AuthShell } from "@/components/auth/auth-shell"
+import { PasswordField, PasswordMeter } from "@/components/auth/password-field"
+import { Button } from "@/components/ui/button"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+
+const schema = z
+  .object({
+    email: z.string().trim().min(1, "Informe seu e-mail").email("Informe um e-mail válido"),
+    password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
+    confirmPassword: z.string().min(1, "Repita a senha"),
+  })
+  .refine((v) => v.password === v.confirmPassword, { path: ["confirmPassword"], message: "As senhas não coincidem" })
+type RegisterValues = z.infer<typeof schema>
 
 export default function RegisterPage() {
   const router = useRouter()
   const { register } = useAuth()
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+  const form = useForm<RegisterValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { email: "", password: "", confirmPassword: "" },
+  })
+  const { isSubmitting, errors } = form.formState
+  const password = useWatch({ control: form.control, name: "password" })
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (password !== confirmPassword) {
-      toast.error("As senhas não coincidem.")
-      return
-    }
-    setIsLoading(true)
+  async function onSubmit(values: RegisterValues) {
     try {
-      await register(email, password)
+      await register(values.email, values.password)
       toast.success("Conta criada com sucesso.")
       router.push("/dashboard")
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Erro ao criar conta."
-      toast.error(message)
-    } finally {
-      setIsLoading(false)
+      form.setError("root", { message: error instanceof Error ? error.message : "Erro ao criar conta." })
     }
   }
 
   return (
-    <div className="flex min-h-screen bg-white">
-      {/* ── Esquerda: painel do formulário ── */}
-      <div className="relative flex w-full flex-col lg:w-[460px] xl:w-[520px] shrink-0">
-        {/* Logo */}
-        <div className="flex items-center gap-2.5 p-8">
-          <Wallet className="size-5 text-red-500" />
-          <span className="text-base font-bold tracking-tight text-zinc-900">Pit Finance</span>
-        </div>
+    <AuthShell>
+      <AuthHeading title="Criar conta" description="Leva um minuto. Comece a organizar suas finanças agora mesmo." />
 
-        {/* Formulário — centralizado verticalmente */}
-        <div className="flex flex-1 flex-col justify-center px-8 pb-8 lg:px-14">
-          <div className="w-full max-w-sm">
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-900">Crie sua conta</h1>
-            <p className="mt-2 text-sm text-zinc-500">
-              Comece a organizar suas finanças agora mesmo. É grátis.
-            </p>
-
-            <form onSubmit={handleSubmit} className="mt-8 space-y-4">
-              <div className="space-y-1.5">
-                <label htmlFor="email" className="block text-sm font-medium text-zinc-700">
-                  Email
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="voce@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900
-                    placeholder:text-zinc-400 outline-none
-                    focus:border-red-500 focus:ring-2 focus:ring-red-500/10
-                    transition-colors"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label htmlFor="password" className="block text-sm font-medium text-zinc-700">
-                  Senha
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="Crie uma senha forte"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900
-                    placeholder:text-zinc-400 outline-none
-                    focus:border-red-500 focus:ring-2 focus:ring-red-500/10
-                    transition-colors"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-zinc-700">
-                  Confirmar senha
-                </label>
-                <input
-                  id="confirmPassword"
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder="Repita a senha"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  className="w-full rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm text-zinc-900
-                    placeholder:text-zinc-400 outline-none
-                    focus:border-red-500 focus:ring-2 focus:ring-red-500/10
-                    transition-colors"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-6 py-2.5 text-sm font-semibold text-white
-                  hover:bg-red-500 active:bg-red-700
-                  disabled:opacity-50 disabled:cursor-not-allowed
-                  transition-colors duration-150"
-              >
-                {isLoading ? <Spinner className="size-4" /> : null}
-                {isLoading ? "Criando conta..." : "Criar conta"}
-                {!isLoading && <ArrowRight className="size-4" />}
-              </button>
-            </form>
-
-            <div className="mt-6 flex items-center gap-3">
-              <div className="h-px flex-1 bg-zinc-200" />
-              <span className="text-xs text-zinc-400">ou</span>
-              <div className="h-px flex-1 bg-zinc-200" />
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-[18px]" noValidate>
+          {errors.root && (
+            <div role="alert" className="flex items-start gap-2.5 rounded-[10px] border border-expense/40 bg-expense-soft px-3 py-2.5 text-[13px]">
+              <AlertCircle className="mt-0.5 size-4 shrink-0 text-expense" aria-hidden />
+              <span>{errors.root.message}</span>
             </div>
+          )}
 
-            <p className="mt-6 text-center text-sm text-zinc-500">
-              Já tem conta?{" "}
-              <Link
-                href="/login"
-                className="font-medium text-red-600 hover:text-red-500 transition-colors"
-              >
-                Fazer login
-              </Link>
-            </p>
-          </div>
-        </div>
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>E-mail</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                    <Input type="email" autoComplete="email" placeholder="voce@email.com" className="h-11 pl-9" {...field} />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-        {/* Rodapé */}
-        <p className="p-8 text-xs text-zinc-400">&copy; {new Date().getFullYear()} Pit Finance</p>
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Senha</FormLabel>
+                <FormControl>
+                  <PasswordField autoComplete="new-password" placeholder="Mínimo de 6 caracteres" {...field} />
+                </FormControl>
+                <PasswordMeter password={password} />
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="confirmPassword"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Confirmar senha</FormLabel>
+                <FormControl>
+                  <PasswordField autoComplete="new-password" placeholder="Repita a senha" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <Button type="submit" size="lg" className="h-11 w-full" disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="animate-spin" />}
+            {isSubmitting ? "Criando conta…" : "Criar conta"}
+          </Button>
+        </form>
+      </Form>
+
+      <div className="flex items-center gap-3 text-xs text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">
+        ou
       </div>
 
-      {/* ── Direita: painel de marca ── */}
-      <div className="relative hidden flex-1 flex-col items-center justify-center overflow-hidden border-l border-zinc-200 bg-gradient-to-br from-red-50 via-rose-50 to-white p-16 lg:flex">
-        <div className="max-w-md text-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-1.5 text-xs text-zinc-500">
-            <div className="size-1.5 rounded-full bg-red-500" />
-            Comece de graça
-          </div>
-          <h2 className="text-4xl font-bold leading-tight tracking-tight text-zinc-900">
-            Organize tudo,
-            <br />
-            gaste melhor
-          </h2>
-          <p className="mt-5 text-base leading-relaxed text-zinc-500">
-            Visualize receitas, despesas e credores num dashboard limpo e sem distrações.
-          </p>
-        </div>
-      </div>
-    </div>
+      <p className="text-center text-sm text-muted-foreground">
+        Já tem conta?{" "}
+        <Link href="/login" className="font-medium text-primary hover:underline">
+          Entrar
+        </Link>
+      </p>
+    </AuthShell>
   )
 }

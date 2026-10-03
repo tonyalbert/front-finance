@@ -2,321 +2,377 @@
 
 import * as React from "react"
 import { toast } from "sonner"
-import { AlertCircle, CheckCircle2, Mail, Phone, Plus, Trash2, XCircle } from "lucide-react"
+import {
+  AlertCircle,
+  Building2,
+  CheckCircle2,
+  Clock,
+  Mail,
+  MoreHorizontal,
+  Pencil,
+  Phone,
+  Plus,
+  RefreshCw,
+  Trash2,
+  Wallet,
+} from "lucide-react"
+import { cn } from "@/lib/utils"
 import { useAuth } from "@/hooks/use-auth"
 import { apiFetch } from "@/lib/api"
-import type { ApiCreditor, ApiCreditorDetails, ApiExpense } from "@/lib/finance-types"
-import { MONTHS, formatBRL } from "@/lib/finance-utils"
+import type { ApiCreditor, ApiCreditorDetails } from "@/lib/finance-types"
+import { MONTHS, formatBRL, isInMonth } from "@/lib/finance-utils"
+import { usePeriod } from "@/components/dashboard/period-provider"
 import { PageShell } from "@/components/dashboard/page-shell"
+import { CreditorDetailsDialog } from "@/components/dashboard/creditor-details-dialog"
+import { CreditorSheet, type CreditorFormValues } from "@/components/finance/creditor-sheet"
+import { EmptyState } from "@/components/finance/empty-state"
+import { KpiCard } from "@/components/finance/kpi-card"
+import { KpiRowSkeleton, TableSkeleton } from "@/components/finance/skeletons"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Card } from "@/components/ui/card"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 export default function CreditoresPage() {
   const { token } = useAuth()
-  const now = React.useMemo(() => new Date(), [])
+  const { month, year } = usePeriod()
 
   const [creditors, setCreditors] = React.useState<ApiCreditor[]>([])
-  const [creditorFilterMonth, setCreditorFilterMonth] = React.useState<string>(String(now.getMonth() + 1))
-  const [creditorFilterYear, setCreditorFilterYear] = React.useState<string>(String(now.getFullYear()))
-  const [isLoadingData, setIsLoadingData] = React.useState(false)
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [loadError, setLoadError] = React.useState<string | null>(null)
 
-  const [isCreditorDialogOpen, setIsCreditorDialogOpen] = React.useState(false)
-  const [newCreditorName, setNewCreditorName] = React.useState("")
-  const [newCreditorPhone, setNewCreditorPhone] = React.useState("")
-  const [newCreditorEmail, setNewCreditorEmail] = React.useState("")
+  const [sheetOpen, setSheetOpen] = React.useState(false)
+  const [editing, setEditing] = React.useState<ApiCreditor | null>(null)
+  const [pendingDelete, setPendingDelete] = React.useState<ApiCreditor | null>(null)
+  const [isDeleting, setIsDeleting] = React.useState(false)
 
-  const [creditorDetails, setCreditorDetails] = React.useState<ApiCreditorDetails | null>(null)
-  const [isCreditorDetailsOpen, setIsCreditorDetailsOpen] = React.useState(false)
-  const [isLoadingCreditorDetails, setIsLoadingCreditorDetails] = React.useState(false)
+  const [details, setDetails] = React.useState<ApiCreditorDetails | null>(null)
+  const [detailsOpen, setDetailsOpen] = React.useState(false)
+  const [isLoadingDetails, setIsLoadingDetails] = React.useState(false)
+  const [payingIds, setPayingIds] = React.useState<Set<string>>(() => new Set())
 
-  const availableYears = React.useMemo(() => {
-    const current = now.getFullYear()
-    return [current - 1, current, current + 1]
-  }, [now])
+  const monthParam = String(month + 1)
+  const yearParam = String(year)
 
-  const fetchCreditors = React.useCallback(async (month: string, year: string) => {
+  const fetchCreditors = React.useCallback(async () => {
     if (!token) return
-    setIsLoadingData(true)
     try {
-      const res = await apiFetch<ApiCreditor[]>(`/creditors/summary?month=${month}&year=${year}`, { token })
-      setCreditors(res)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao carregar credores.")
-    } finally {
-      setIsLoadingData(false)
+      setCreditors(await apiFetch<ApiCreditor[]>(`/creditors/summary?month=${monthParam}&year=${yearParam}`, { token }))
+      setLoadError(null)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Erro ao carregar credores.")
     }
-  }, [token])
+  }, [token, monthParam, yearParam])
 
   React.useEffect(() => {
-    fetchCreditors(creditorFilterMonth, creditorFilterYear)
-  }, [creditorFilterMonth, creditorFilterYear, fetchCreditors])
-
-  async function handleAddCreditor() {
-    if (!token || newCreditorName.trim().length < 2) {
-      toast.error("Nome do credor precisa ter pelo menos 2 caracteres.")
-      return
+    let cancelled = false
+    setIsLoading(true)
+    fetchCreditors().finally(() => {
+      if (!cancelled) setIsLoading(false)
+    })
+    return () => {
+      cancelled = true
     }
-    try {
-      const created = await apiFetch<ApiCreditor>("/creditors", {
-        method: "POST",
-        token,
-        body: JSON.stringify({
-          name: newCreditorName.trim(),
-          phone: newCreditorPhone.trim() || null,
-          email: newCreditorEmail.trim() || null,
-        }),
-      })
-      setCreditors((prev) => [
-        { ...created, totalAmount: 0, paidAmount: 0, unpaidAmount: 0, isPaidOff: false, expenseCount: 0 },
-        ...prev,
-      ])
-      setNewCreditorName("")
-      setNewCreditorPhone("")
-      setNewCreditorEmail("")
-      setIsCreditorDialogOpen(false)
-      toast.success("Credor criado com sucesso!")
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao criar credor.")
-    }
-  }
+  }, [fetchCreditors])
 
-  async function handleDeleteCreditor(creditorId: string) {
-    if (!token) return
+  const totals = React.useMemo(() => {
+    const total = creditors.reduce((s, c) => s + c.totalAmount, 0)
+    const paid = creditors.reduce((s, c) => s + c.paidAmount, 0)
+    const pending = creditors.filter((c) => !c.isPaidOff && c.expenseCount > 0)
+    return { total, paid, open: total - paid, pendingCount: pending.length }
+  }, [creditors])
+
+  const periodLabel = `${MONTHS[month].label.toLowerCase()} de ${year}`
+
+  async function submit(values: CreditorFormValues, current: Pick<ApiCreditor, "id"> | null) {
+    if (!token) throw new Error("Sessão expirada.")
+    const body = { name: values.name, phone: values.phone || null, email: values.email || null }
     try {
-      await apiFetch(`/creditors/${creditorId}`, { method: "DELETE", token })
-      setCreditors((prev) => prev.filter((c) => c.id !== creditorId))
-      toast.success("Credor excluído com sucesso!")
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao excluir credor.")
+      if (current) {
+        await apiFetch(`/creditors/${current.id}`, { method: "PUT", token, body: JSON.stringify(body) })
+        setCreditors((prev) => prev.map((c) => (c.id === current.id ? { ...c, ...body } : c)))
+        toast.success("Credor atualizado.")
+      } else {
+        const created = await apiFetch<ApiCreditor>("/creditors", { method: "POST", token, body: JSON.stringify(body) })
+        setCreditors((prev) => [{ ...created, totalAmount: 0, paidAmount: 0, unpaidAmount: 0, isPaidOff: false, expenseCount: 0 }, ...prev])
+        toast.success("Credor criado.")
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar o credor.")
+      throw err
     }
   }
 
-  async function handleOpenCreditor(creditorId: string) {
-    if (!token) return
-    setIsLoadingCreditorDetails(true)
-    setIsCreditorDetailsOpen(true)
+  async function confirmDelete() {
+    if (!token || !pendingDelete) return
+    setIsDeleting(true)
     try {
-      const details = await apiFetch<ApiCreditorDetails>(`/creditors/${creditorId}?month=${creditorFilterMonth}&year=${creditorFilterYear}`, { token })
-      const filtered = details.expenses.filter((e) => {
-        const date = new Date(e.date)
-        return date.getMonth() + 1 === Number(creditorFilterMonth) && date.getFullYear() === Number(creditorFilterYear)
-      })
-      setCreditorDetails({ ...details, expenses: filtered })
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao carregar detalhes.")
-      setIsCreditorDetailsOpen(false)
+      await apiFetch(`/creditors/${pendingDelete.id}`, { method: "DELETE", token })
+      setCreditors((prev) => prev.filter((c) => c.id !== pendingDelete.id))
+      toast.success("Credor excluído.")
+      setPendingDelete(null)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao excluir o credor.")
     } finally {
-      setIsLoadingCreditorDetails(false)
+      setIsDeleting(false)
+    }
+  }
+
+  async function openDetails(id: string) {
+    if (!token) return
+    setIsLoadingDetails(true)
+    setDetailsOpen(true)
+    try {
+      const d = await apiFetch<ApiCreditorDetails>(`/creditors/${id}?month=${monthParam}&year=${yearParam}`, { token })
+      setDetails({ ...d, expenses: d.expenses.filter((e) => isInMonth(e.date, year, month)) })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao carregar detalhes.")
+      setDetailsOpen(false)
+    } finally {
+      setIsLoadingDetails(false)
+    }
+  }
+
+  async function setPaid(ids: string[], isPaid: boolean) {
+    if (!token || ids.length === 0) return
+    setPayingIds((prev) => new Set([...prev, ...ids]))
+    try {
+      await Promise.all(ids.map((id) => apiFetch(`/expenses/${id}`, { method: "PUT", token, body: JSON.stringify({ isPaid }) })))
+      setDetails((prev) => (prev ? { ...prev, expenses: prev.expenses.map((e) => (ids.includes(e.id) ? { ...e, isPaid } : e)) } : prev))
+      await fetchCreditors()
+      toast.success(ids.length > 1 ? `${ids.length} contas marcadas como pagas.` : isPaid ? "Marcada como paga." : "Marcada como pendente.")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao atualizar o status.")
+    } finally {
+      setPayingIds((prev) => new Set([...prev].filter((id) => !ids.includes(id))))
     }
   }
 
   return (
     <PageShell
       title="Credores"
+      subtitle={`Para quem você paga e quanto falta em ${periodLabel}`}
       headerActions={
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={creditorFilterMonth} onValueChange={setCreditorFilterMonth}>
-            <SelectTrigger className="w-[130px] border-white/10 bg-white/5 text-white">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {MONTHS.map((m, i) => (
-                <SelectItem key={i + 1} value={String(i + 1)}>{m.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={creditorFilterYear} onValueChange={setCreditorFilterYear}>
-            <SelectTrigger className="w-[100px] border-white/10 bg-white/5 text-white">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {availableYears.map((y) => (
-                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Dialog open={isCreditorDialogOpen} onOpenChange={setIsCreditorDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" className="border-white/15 bg-white/5 text-white hover:bg-white/10">
-                <Plus className="mr-2 size-4" />
-                Novo Credor
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Adicionar Credor</DialogTitle></DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <label className="mb-2 block text-sm font-medium">Nome</label>
-                  <Input placeholder="Ex: João Silva" value={newCreditorName} onChange={(e) => setNewCreditorName(e.target.value)} />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium">Telefone</label>
-                  <Input placeholder="Ex: (11) 98765-4321" value={newCreditorPhone} onChange={(e) => setNewCreditorPhone(e.target.value)} />
-                </div>
-                <div>
-                  <label className="mb-2 block text-sm font-medium">Email</label>
-                  <Input type="email" placeholder="Ex: joao@email.com" value={newCreditorEmail} onChange={(e) => setNewCreditorEmail(e.target.value)} />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => { setIsCreditorDialogOpen(false); setNewCreditorName(""); setNewCreditorPhone(""); setNewCreditorEmail("") }}>Cancelar</Button>
-                  <Button onClick={handleAddCreditor} disabled={!newCreditorName.trim()}>Adicionar</Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+        <Button
+          onClick={() => {
+            setEditing(null)
+            setSheetOpen(true)
+          }}
+        >
+          <Plus /> Novo credor
+        </Button>
       }
     >
-      {isLoadingData && <p className="text-sm text-white/40">Carregando credores...</p>}
+      {isLoading ? (
+        <KpiRowSkeleton count={3} />
+      ) : (
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4">
+          <KpiCard
+            hero
+            label="Em aberto"
+            icon={Wallet}
+            tone="warning"
+            value={formatBRL(totals.open)}
+            footnote={`de ${formatBRL(totals.total)} no mês`}
+          />
+          <KpiCard label="Pago" icon={CheckCircle2} tone="income" value={formatBRL(totals.paid)} footnote="Quitado neste mês" />
+          <KpiCard
+            label="Com pendência"
+            icon={Clock}
+            tone="expense"
+            value={String(totals.pendingCount)}
+            footnote={`credor${totals.pendingCount !== 1 ? "es" : ""} a quitar`}
+          />
+        </div>
+      )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {creditors.length === 0 && !isLoadingData ? (
-          <Card className="bg-white/[0.03] border-white/[0.07]">
-            <CardContent className="py-8 text-center text-sm text-muted-foreground">
-              Nenhum credor neste período.
-            </CardContent>
-          </Card>
-        ) : (
-          creditors.map((creditor) => (
-            <Card
-              key={creditor.id}
-              className={[
-                "cursor-pointer bg-white/[0.04] border-white/[0.08] backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.07] hover:border-white/[0.14]",
-                creditor.isPaidOff ? "" : "border-orange-500/20",
-              ].join(" ")}
-              onClick={() => handleOpenCreditor(creditor.id)}
-            >
-              <CardContent className="px-3 py-3">
-                <div className="mb-2 flex items-start justify-between">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="truncate text-sm font-semibold">{creditor.name}</h3>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      {creditor.phone && (
-                        <div className="flex items-center gap-1">
-                          <Phone className="size-3" />{creditor.phone}
-                        </div>
+      {loadError && !isLoading ? (
+        <div role="alert" className="flex items-start gap-3 rounded-[10px] border border-expense/40 bg-expense-soft px-3.5 py-3">
+          <AlertCircle className="mt-0.5 size-5 shrink-0 text-expense" aria-hidden />
+          <div className="min-w-0 flex-1 text-[13px]">
+            <strong className="block text-sm font-semibold">Não foi possível carregar os credores</strong>
+            <span className="text-muted-foreground">{loadError}</span>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => void fetchCreditors()}>
+            <RefreshCw /> Tentar novamente
+          </Button>
+        </div>
+      ) : isLoading ? (
+        <Card className="py-0">
+          <TableSkeleton rows={4} cols={4} />
+        </Card>
+      ) : creditors.length === 0 ? (
+        <Card className="py-0">
+          <EmptyState
+            icon={Building2}
+            title="Nenhum credor ainda"
+            description="Cadastre quem você paga para ver quanto falta de cada um."
+            action={
+              <Button
+                onClick={() => {
+                  setEditing(null)
+                  setSheetOpen(true)
+                }}
+              >
+                <Plus /> Novo credor
+              </Button>
+            }
+          />
+        </Card>
+      ) : (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-4">
+          {creditors.map((c) => {
+            const pct = c.totalAmount > 0 ? Math.round((c.paidAmount / c.totalAmount) * 100) : 0
+            const hasExpenses = c.expenseCount > 0
+            return (
+              <Card key={c.id} className="relative gap-0 py-0 transition-colors hover:border-input">
+                <button
+                  type="button"
+                  onClick={() => void openDetails(c.id)}
+                  className="flex w-full flex-col gap-3 rounded-xl p-4 text-left"
+                  aria-label={`Ver contas de ${c.name}`}
+                >
+                  <div className="flex items-start gap-3 pr-9">
+                    <span
+                      className={cn(
+                        "grid size-10 shrink-0 place-items-center rounded-full text-xs font-semibold",
+                        c.isPaidOff || !hasExpenses ? "bg-income-soft text-income" : "bg-expense-soft text-expense",
                       )}
-                      {creditor.email && (
-                        <div className="flex items-center gap-1">
-                          <Mail className="size-3" />{creditor.email}
-                        </div>
-                      )}
+                      aria-hidden
+                    >
+                      {c.name.slice(0, 2).toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1 leading-tight">
+                      <h3 className="truncate text-sm font-semibold">{c.name}</h3>
+                      <div className="mt-1 flex flex-col gap-0.5 text-xs text-muted-foreground">
+                        {c.phone && (
+                          <span className="inline-flex items-center gap-1.5 truncate">
+                            <Phone className="size-3 shrink-0" aria-hidden />
+                            {c.phone}
+                          </span>
+                        )}
+                        {c.email && (
+                          <span className="inline-flex items-center gap-1.5 truncate">
+                            <Mail className="size-3 shrink-0" aria-hidden />
+                            {c.email}
+                          </span>
+                        )}
+                        {!c.phone && !c.email && <span>{c.expenseCount} despesa{c.expenseCount !== 1 ? "s" : ""} no mês</span>}
+                      </div>
                     </div>
                   </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDeleteCreditor(creditor.id) }}
-                    className="ml-2 shrink-0 rounded-full p-0.5 hover:bg-muted"
-                    title="Excluir credor"
-                  >
-                    <Trash2 className="size-3.5 text-muted-foreground hover:text-destructive" />
-                  </button>
-                </div>
-                <div className="space-y-1 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Total:</span>
-                    <span className="font-medium tabular-nums">{formatBRL(creditor.totalAmount)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Pago:</span>
-                    <span className="font-medium tabular-nums text-emerald-500">{formatBRL(creditor.paidAmount)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Restante:</span>
-                    <span className={`font-semibold tabular-nums ${creditor.isPaidOff ? "text-emerald-500" : "text-red-400"}`}>
-                      {formatBRL(creditor.unpaidAmount)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Status:</span>
-                    {creditor.isPaidOff ? (
-                      <span className="flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/20 px-1.5 py-0.5 text-xs font-medium text-emerald-400">
-                        <CheckCircle2 className="size-3" />Quitado
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 rounded-full bg-red-500/15 border border-red-500/20 px-1.5 py-0.5 text-xs font-medium text-red-400">
-                        <AlertCircle className="size-3" />Pendente
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
 
-      {/* Creditor details dialog */}
-      <Dialog
-        open={isCreditorDetailsOpen}
-        onOpenChange={(open) => { setIsCreditorDetailsOpen(open); if (!open) setCreditorDetails(null) }}
-      >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{creditorDetails?.name ?? "Carregando..."}</DialogTitle>
-          </DialogHeader>
-          {isLoadingCreditorDetails ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">Carregando contas...</p>
-          ) : creditorDetails?.expenses.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma conta associada.</p>
-          ) : (
-            <div className="max-h-[60vh] overflow-y-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead>Data</TableHead>
-                    <TableHead className="text-right">Valor</TableHead>
-                    <TableHead className="text-center">Pago</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {creditorDetails?.expenses.map((exp: ApiExpense) => (
-                    <TableRow key={exp.id}>
-                      <TableCell className="text-sm">{exp.item}</TableCell>
-                      <TableCell className="text-sm tabular-nums text-muted-foreground">
-                        {new Date(exp.date).toLocaleDateString("pt-BR")}
-                      </TableCell>
-                      <TableCell className="text-right text-sm tabular-nums">
-                        {formatBRL(Number(exp.amount))}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {exp.isPaid ? (
-                          <CheckCircle2 className="mx-auto size-4 text-emerald-500" />
-                        ) : (
-                          <XCircle className="mx-auto size-4 text-red-400" />
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+                  <div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">
+                        {hasExpenses ? `${c.expenseCount} conta${c.expenseCount !== 1 ? "s" : ""}` : "Sem contas no mês"}
+                      </span>
+                      <span className="num text-muted-foreground">{pct}% pago</span>
+                    </div>
+                    <div
+                      className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted"
+                      role="progressbar"
+                      aria-valuenow={pct}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label={`${pct}% pago`}
+                    >
+                      <div className="h-full rounded-full bg-income transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+
+                  <div className="flex items-end justify-between gap-2">
+                    <div className="leading-tight">
+                      <p className="text-xs text-muted-foreground">Restante</p>
+                      <p className={cn("num text-base font-semibold", c.isPaidOff || !hasExpenses ? "text-income" : "text-expense")}>
+                        {formatBRL(c.unpaidAmount)}
+                      </p>
+                      <p className="num text-xs text-muted-foreground">de {formatBRL(c.totalAmount)}</p>
+                    </div>
+                    {hasExpenses &&
+                      (c.isPaidOff ? (
+                        <span className="inline-flex h-6 items-center gap-1 rounded-full bg-income-soft px-2 text-xs font-medium text-income">
+                          <CheckCircle2 className="size-3.5" aria-hidden />
+                          Quitado
+                        </span>
+                      ) : (
+                        <span className="inline-flex h-6 items-center gap-1 rounded-full bg-warning-soft px-2 text-xs font-medium text-warning">
+                          <Clock className="size-3.5" aria-hidden />
+                          Pendente
+                        </span>
+                      ))}
+                  </div>
+                </button>
+
+                <div className="absolute right-2 top-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="size-8 max-md:size-11" aria-label={`Ações de ${c.name}`}>
+                        <MoreHorizontal />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          setEditing(c)
+                          setSheetOpen(true)
+                        }}
+                      >
+                        <Pencil /> Editar
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem variant="destructive" onSelect={() => setPendingDelete(c)}>
+                        <Trash2 /> Excluir
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </Card>
+            )
+          })}
+        </div>
+      )}
+
+      <CreditorSheet open={sheetOpen} onOpenChange={setSheetOpen} creditor={editing} onSubmit={submit} />
+
+      <CreditorDetailsDialog
+        open={detailsOpen}
+        onOpenChange={(o) => {
+          setDetailsOpen(o)
+          if (!o) setDetails(null)
+        }}
+        details={details}
+        isLoading={isLoadingDetails}
+        periodLabel={periodLabel}
+        payingIds={payingIds}
+        onSetPaid={setPaid}
+      />
+
+      <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir “{pendingDelete?.name}”?</AlertDialogTitle>
+            <AlertDialogDescription>
+              As despesas ligadas a este credor ficam sem credor. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={() => void confirmDelete()} disabled={isDeleting}>
+              {isDeleting ? "Excluindo…" : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageShell>
   )
 }

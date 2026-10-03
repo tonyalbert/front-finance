@@ -3,7 +3,7 @@ import type { ChartConfig } from "@/components/ui/chart"
 export const MONTHS = [
   { label: "Janeiro", short: "Jan" },
   { label: "Fevereiro", short: "Fev" },
-  { label: "Marco", short: "Mar" },
+  { label: "Março", short: "Mar" },
   { label: "Abril", short: "Abr" },
   { label: "Maio", short: "Mai" },
   { label: "Junho", short: "Jun" },
@@ -15,33 +15,21 @@ export const MONTHS = [
   { label: "Dezembro", short: "Dez" },
 ] as const
 
+// Categorias: --chart-1..5 ("Outros" usa --chart-7, neutro)
 export const CHART_PALETTE = [
-  "var(--color-chart-1)",
-  "var(--color-chart-2)",
-  "var(--color-chart-3)",
-  "var(--color-chart-4)",
-  "var(--color-chart-5)",
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
 ] as const
 
-export const INCOME_PALETTE = [
-  "#34d399",
-  "#10b981",
-  "#6ee7b7",
-  "#059669",
-  "#a7f3d0",
-] as const
+export const OTHERS_COLOR = "var(--chart-7)"
 
-export const EXPENSE_PALETTE = [
-  "#f87171",
-  "#fb923c",
-  "#c084fc",
-  "#fbbf24",
-  "#f472b6",
-] as const
-
+// Barras receita x despesa: --series-in / --series-out
 export const spendConfig = {
-  gastos: { label: "Despesas", color: "#f87171" },
-  receitas: { label: "Receitas", color: "#34d399" },
+  gastos: { label: "Despesas", color: "var(--series-out)" },
+  receitas: { label: "Receitas", color: "var(--series-in)" },
 } satisfies ChartConfig
 
 export function formatBRL(value: number) {
@@ -51,6 +39,21 @@ export function formatBRL(value: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })
+}
+
+export type ExpenseStatus = "paid" | "pending" | "late"
+
+/** Pago, pendente, ou atrasado (pendente com vencimento antes de hoje). */
+export function getExpenseStatus(
+  expense: { isPaid: boolean; date: string },
+  today: Date = new Date(),
+): ExpenseStatus {
+  if (expense.isPaid) return "paid"
+  const due = new Date(expense.date)
+  if (Number.isNaN(due.getTime())) return "pending"
+  const dueDay = due.toISOString().slice(0, 10)
+  const localToday = new Date(today.getTime() - today.getTimezoneOffset() * 60000)
+  return dueDay < localToday.toISOString().slice(0, 10) ? "late" : "pending"
 }
 
 export function formatDateInput(value: string) {
@@ -105,10 +108,27 @@ export function buildDonutData(
   const data = pairs.map(([name, value], index) => ({
     name,
     value,
-    fill: palette[index % palette.length],
+    fill: name === "Outros" ? OTHERS_COLOR : palette[index % palette.length],
   }))
   const config: ChartConfig = Object.fromEntries(
     data.map((d) => [d.name, { label: d.name, color: d.fill }]),
   )
   return { data, config }
+}
+
+/** Ano/mês(0-11)/dia de uma data ISO em UTC (as datas do app são "só data", gravadas à meia-noite UTC). */
+export function utcParts(iso: string): { year: number; month: number; day: number } | null {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return { year: d.getUTCFullYear(), month: d.getUTCMonth(), day: d.getUTCDate() }
+}
+
+export function isInMonth(iso: string, year: number, month: number): boolean {
+  const p = utcParts(iso)
+  return !!p && p.year === year && p.month === month
+}
+
+/** Dia/mês/ano locais -> ISO à meia-noite UTC (evita deslocar o dia no fuso UTC-3). */
+export function toUtcIso(year: number, month: number, day: number): string {
+  return new Date(Date.UTC(year, month, day)).toISOString()
 }

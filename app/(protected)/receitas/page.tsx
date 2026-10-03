@@ -1,386 +1,485 @@
 "use client"
 
 import * as React from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
-import { Calendar, DollarSign, FileText, Tag, TrendingUp } from "lucide-react"
+import { AlertCircle, Plus, RefreshCw, Search, Tag, Trash2, TrendingUp, Inbox, Hash, Trophy, X } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
-import { useSelectedYear } from "@/hooks/use-selected-year"
 import { apiFetch } from "@/lib/api"
 import type { ApiIncome, ApiTag } from "@/lib/finance-types"
-import {
-  MONTHS,
-  formatBRL,
-  formatDateDisplay,
-  formatDateInput,
-  toNumber,
-  getQuarter,
-} from "@/lib/finance-utils"
+import { MONTHS, formatBRL, getQuarter, toNumber, toUtcIso, utcParts } from "@/lib/finance-utils"
+import { cn } from "@/lib/utils"
+import { usePeriod } from "@/components/dashboard/period-provider"
 import { PageShell } from "@/components/dashboard/page-shell"
-import { DatePickerCell } from "@/components/dashboard/date-picker-cell"
-import { SortableIncomeHeader } from "@/components/dashboard/sortable-header"
+import { TagsSheet } from "@/components/dashboard/tags-sheet"
+import { IncomesTable, sortIncomes, type IncomeSortKey, type IncomeSortState } from "@/components/receitas/incomes-table"
+import { EmptyState } from "@/components/finance/empty-state"
+import { IncomeSheet, type IncomeFormValues } from "@/components/finance/income-sheet"
+import { KpiCard, type KpiDelta } from "@/components/finance/kpi-card"
+import { KpiRowSkeleton, TableSkeleton } from "@/components/finance/skeletons"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+type Scope = "month" | "quarter" | "year"
+const NONE = "none"
+const normalize = (v: string) => v.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim()
 
 export default function ReceitasPage() {
-  const { token } = useAuth()
-  const now = React.useMemo(() => new Date(), [])
-  const currentYear = now.getFullYear()
-  const currentMonthIndex = now.getMonth()
+  return (
+    <React.Suspense fallback={null}>
+      <ReceitasContent />
+    </React.Suspense>
+  )
+}
 
-  const [selectedYear, setSelectedYear] = useSelectedYear()
-  const selectedYearNumber = Number(selectedYear)
-  const [incomeQuarter, setIncomeQuarter] = React.useState<string>("month")
+function ReceitasContent() {
+  const { token } = useAuth()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { month, year } = usePeriod()
 
   const [tags, setTags] = React.useState<ApiTag[]>([])
   const [incomes, setIncomes] = React.useState<ApiIncome[]>([])
-  const [isLoadingData, setIsLoadingData] = React.useState(false)
-  const [editingIncomeCell, setEditingIncomeCell] = React.useState<{
-    id: string
-    field: "source" | "amount" | "date" | "tagId"
-  } | null>(null)
-  const [draftsIncome, setDraftsIncome] = React.useState<Record<string, Partial<ApiIncome>>>({})
-  const [savingIncomeId, setSavingIncomeId] = React.useState<string | null>(null)
-  const [sortColumnIncome, setSortColumnIncome] = React.useState<"source" | "amount" | "date" | "tagId" | null>(null)
-  const [sortDirectionIncome, setSortDirectionIncome] = React.useState<"asc" | "desc">("desc")
-  const [selectedIncomeIds, setSelectedIncomeIds] = React.useState<Set<string>>(() => new Set())
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [loadError, setLoadError] = React.useState<string | null>(null)
 
-  React.useEffect(() => {
+  const [scope, setScope] = React.useState<Scope>("month")
+  const [search, setSearch] = React.useState("")
+  const [tagFilter, setTagFilter] = React.useState("all")
+  const [sort, setSort] = React.useState<IncomeSortState>({ key: "date", dir: "desc" })
+  const [selected, setSelected] = React.useState<Set<string>>(() => new Set())
+
+  const [sheetOpen, setSheetOpen] = React.useState(false)
+  const [tagsOpen, setTagsOpen] = React.useState(false)
+  const [editing, setEditing] = React.useState<ApiIncome | null>(null)
+  const [pendingDelete, setPendingDelete] = React.useState<string[] | null>(null)
+  const [isBusy, setIsBusy] = React.useState(false)
+
+  const load = React.useCallback(async () => {
     if (!token) return
-    let cancelled = false
-    setIsLoadingData(true)
-    Promise.all([
-      apiFetch<ApiTag[]>("/tags", { token }),
-      apiFetch<ApiIncome[]>("/incomes", { token }),
-    ])
-      .then(([tagsRes, incomesRes]) => {
-        if (cancelled) return
-        setTags(tagsRes)
-        setIncomes(incomesRes)
-      })
-      .catch((err) => { if (!cancelled) toast.error(err instanceof Error ? err.message : "Erro ao carregar dados.") })
-      .finally(() => { if (!cancelled) setIsLoadingData(false) })
-    return () => { cancelled = true }
+    setIsLoading(true)
+    setLoadError(null)
+    try {
+      const [t, i] = await Promise.all([apiFetch<ApiTag[]>("/tags", { token }), apiFetch<ApiIncome[]>("/incomes", { token })])
+      setTags(t)
+      setIncomes(i)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Erro ao carregar dados.")
+    } finally {
+      setIsLoading(false)
+    }
   }, [token])
 
-  const tagById = React.useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags])
+  React.useEffect(() => {
+    void load()
+  }, [load])
+
+  // ?nova=1 (botão "Nova receita" do dashboard) abre o formulário
+  React.useEffect(() => {
+    if (searchParams.get("nova") !== "1") return
+    setEditing(null)
+    setSheetOpen(true)
+    router.replace("/receitas", { scroll: false })
+  }, [searchParams, router])
+
   const incomeTags = React.useMemo(() => tags.filter((t) => t.type === "INCOME"), [tags])
+  const tagIndexById = React.useMemo(() => new Map(tags.map((t, i) => [t.id, i])), [tags])
+  const tagName = React.useCallback((id: string | null) => (id && tags.find((t) => t.id === id)?.name) || "Sem tag", [tags])
 
-  const availableYears = React.useMemo(() => {
-    const years = new Set<number>()
-    for (const inc of incomes) years.add(new Date(inc.date).getFullYear())
-    years.add(currentYear)
-    return Array.from(years).sort((a, b) => b - a)
-  }, [incomes, currentYear])
+  const inScope = React.useCallback(
+    (iso: string) => {
+      const p = utcParts(iso)
+      if (!p || p.year !== year) return false
+      if (scope === "year") return true
+      if (scope === "quarter") return getQuarter(p.month) === getQuarter(month)
+      return p.month === month
+    },
+    [scope, year, month],
+  )
 
-  const incomeRows = React.useMemo(() => {
-    return incomes
-      .filter((inc) => {
-        const d = new Date(inc.date)
-        if (d.getFullYear() !== selectedYearNumber) return false
-        if (incomeQuarter === "all") return true
-        if (incomeQuarter === "month") return d.getMonth() === currentMonthIndex
-        return incomeQuarter === `q${getQuarter(d.getMonth())}`
-      })
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }, [incomes, selectedYearNumber, incomeQuarter, currentMonthIndex])
+  const scopeRows = React.useMemo(() => incomes.filter((i) => inScope(i.date)), [incomes, inScope])
 
-  const incomeRowsByMonth = React.useMemo(() => {
-    const map = new Map<number, ApiIncome[]>()
-    for (const row of incomeRows) {
-      const mi = new Date(row.date).getMonth()
-      const list = map.get(mi) ?? []
-      list.push(row)
-      map.set(mi, list)
-    }
-    if (sortColumnIncome) {
-      for (const [mi, rows] of map.entries()) {
-        map.set(mi, [...rows].sort((a, b) => {
-          let aVal: string | number
-          let bVal: string | number
-          if (sortColumnIncome === "source") { aVal = a.source.toLowerCase(); bVal = b.source.toLowerCase() }
-          else if (sortColumnIncome === "amount") { aVal = toNumber(a.amount); bVal = toNumber(b.amount) }
-          else if (sortColumnIncome === "date") { aVal = new Date(a.date).getTime(); bVal = new Date(b.date).getTime() }
-          else { aVal = (a.tagId && tagById.get(a.tagId)?.name) || ""; bVal = (b.tagId && tagById.get(b.tagId)?.name) || "" }
-          if (aVal < bVal) return sortDirectionIncome === "asc" ? -1 : 1
-          if (aVal > bVal) return sortDirectionIncome === "asc" ? 1 : -1
-          return 0
-        }))
-      }
-    }
-    return map
-  }, [incomeRows, sortColumnIncome, sortDirectionIncome, tagById])
-
-  function handleIncomeSort(column: "source" | "amount" | "date" | "tagId") {
-    if (sortColumnIncome === column) setSortDirectionIncome(sortDirectionIncome === "asc" ? "desc" : "asc")
-    else { setSortColumnIncome(column); setSortDirectionIncome("asc") }
-  }
-
-  function startIncomeEdit(id: string, field: "source" | "amount" | "date" | "tagId") {
-    setEditingIncomeCell({ id, field })
-    setDraftsIncome((prev) => {
-      if (prev[id]) return prev
-      const current = incomes.find((i) => i.id === id)
-      if (!current) return prev
-      return { ...prev, [id]: { source: current.source, amount: current.amount, date: current.date, tagId: current.tagId } }
+  const filteredRows = React.useMemo(() => {
+    const q = normalize(search)
+    const filtered = scopeRows.filter((i) => {
+      if (q && !normalize(`${i.source} ${i.tagId ? tagName(i.tagId) : ""}`).includes(q)) return false
+      if (tagFilter === NONE ? !!i.tagId : tagFilter !== "all" && i.tagId !== tagFilter) return false
+      return true
     })
+    return sortIncomes(filtered, sort, tagName)
+  }, [scopeRows, search, tagFilter, sort, tagName])
+
+  const selectedIds = React.useMemo(() => {
+    const visible = new Set(filteredRows.map((r) => r.id))
+    return [...selected].filter((id) => visible.has(id))
+  }, [selected, filteredRows])
+
+  const stats = React.useMemo(() => {
+    const total = scopeRows.reduce((s, r) => s + toNumber(r.amount), 0)
+    const biggest = scopeRows.reduce<ApiIncome | null>((m, r) => (!m || toNumber(r.amount) > toNumber(m.amount) ? r : m), null)
+    const prevMonth = month === 0 ? 11 : month - 1
+    const prevYear = month === 0 ? year - 1 : year
+    const prevTotal =
+      scope === "month"
+        ? incomes
+            .filter((i) => {
+              const p = utcParts(i.date)
+              return p && p.year === prevYear && p.month === prevMonth
+            })
+            .reduce((s, i) => s + toNumber(i.amount), 0)
+        : 0
+    return { total, biggest, prevTotal, prevLabel: MONTHS[prevMonth].label.toLowerCase() }
+  }, [scopeRows, incomes, scope, month, year])
+
+  const delta: KpiDelta | undefined = React.useMemo(() => {
+    if (!stats.prevTotal) return undefined
+    const pct = Math.round(((stats.total - stats.prevTotal) / stats.prevTotal) * 1000) / 10
+    return {
+      text: `${pct > 0 ? "+" : ""}${pct.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`,
+      direction: pct > 0 ? "up" : pct < 0 ? "down" : "flat",
+      sentiment: pct === 0 ? "neutral" : pct > 0 ? "good" : "bad",
+    }
+  }, [stats])
+
+  const periodLabel =
+    scope === "month" ? `${MONTHS[month].label.toLowerCase()} de ${year}` : scope === "quarter" ? `${getQuarter(month)}º trimestre de ${year}` : `${year}`
+  const filtersActive = search.trim() !== "" || tagFilter !== "all"
+
+  function clearFilters() {
+    setSearch("")
+    setTagFilter("all")
+  }
+  function changeSort(key: IncomeSortKey) {
+    setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "source" || key === "tag" ? "asc" : "desc" }))
   }
 
-  async function saveIncomeField(id: string, field: "source" | "amount" | "date" | "tagId", value: string) {
-    const current = incomes.find((i) => i.id === id)
-    if (!current || !token) return
-    const payload: Partial<ApiIncome> = {}
-    if (field === "source") {
-      if (value.trim().length < 1) { toast.error("Fonte precisa ter pelo menos 1 caractere."); return }
-      payload.source = value.trim()
-    }
-    if (field === "amount") {
-      const amount = Number(value)
-      if (!Number.isFinite(amount) || amount <= 0) { toast.error("Valor precisa ser maior que zero."); return }
-      payload.amount = amount
-    }
-    if (field === "date") {
-      const d = new Date(value)
-      if (Number.isNaN(d.getTime())) { toast.error("Data inválida."); return }
-      payload.date = d.toISOString()
-    }
-    if (field === "tagId") {
-      payload.tagId = value === "none" ? null : value
-    }
-    setEditingIncomeCell(null)
-    setSavingIncomeId(id)
-    try {
-      await apiFetch(`/incomes/${id}`, { method: "PUT", token, body: JSON.stringify(payload) })
-      setIncomes((prev) => prev.map((inc) => inc.id === id ? { ...inc, ...payload } : inc))
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao salvar.")
-    } finally {
-      setSavingIncomeId(null)
-    }
+  function newIncomeDate() {
+    const today = new Date()
+    const isCurrent = today.getFullYear() === year && today.getMonth() === month
+    return toUtcIso(year, month, isCurrent ? today.getDate() : 1)
+  }
+  function openCreate() {
+    setEditing(null)
+    setSheetOpen(true)
+  }
+  function openEdit(row: ApiIncome) {
+    setEditing(row)
+    setSheetOpen(true)
   }
 
-  async function handleAddIncome(monthIndex: number) {
+  async function changeBasic(row: ApiIncome, patch: { source?: string; amount?: number; date?: string }) {
     if (!token) return
-    const monthKey = `${selectedYearNumber}-${monthIndex}`
-    setSavingIncomeId(monthKey)
     try {
-      const date = new Date(selectedYearNumber, monthIndex, 1).toISOString()
+      await apiFetch(`/incomes/${row.id}`, { method: "PUT", token, body: JSON.stringify(patch) })
+      setIncomes((prev) => prev.map((i) => (i.id === row.id ? { ...i, ...patch } : i)))
+      toast.success("Receita atualizada.")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar.")
+    }
+  }
+
+  async function changeTag(row: ApiIncome, tagId: string | null) {
+    if (!token) return
+    try {
+      await apiFetch(`/incomes/${row.id}`, { method: "PUT", token, body: JSON.stringify({ tagId }) })
+      setIncomes((prev) => prev.map((i) => (i.id === row.id ? { ...i, tagId } : i)))
+      toast.success("Tag atualizada.")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar.")
+    }
+  }
+
+  async function duplicate(row: ApiIncome) {
+    if (!token) return
+    try {
       const created = await apiFetch<ApiIncome>("/incomes", {
         method: "POST",
         token,
-        body: JSON.stringify({ source: "Nova receita", amount: 0.01, date, tagId: incomeTags[0]?.id ?? null }),
+        body: JSON.stringify({ source: row.source, amount: toNumber(row.amount), date: row.date, ...(row.tagId ? { tagId: row.tagId } : {}) }),
       })
       setIncomes((prev) => [created, ...prev])
-      startIncomeEdit(created.id, "source")
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao adicionar.")
-    } finally {
-      setSavingIncomeId(null)
+      toast.success("Receita duplicada.")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao duplicar.")
     }
   }
 
-  async function handleDeleteIncomeSelected(ids: string[]) {
-    if (!token) return
-    setSavingIncomeId("delete")
+  async function confirmDelete() {
+    if (!token || !pendingDelete) return
+    const ids = pendingDelete
+    setPendingDelete(null)
+    setIsBusy(true)
     try {
-      const toDelete = ids.filter((id) => selectedIncomeIds.has(id))
-      if (toDelete.length === 0) return
-      await Promise.all(toDelete.map((id) => apiFetch(`/incomes/${id}`, { method: "DELETE", token })))
-      setIncomes((prev) => prev.filter((inc) => !toDelete.includes(inc.id)))
-      setSelectedIncomeIds((prev) => { const next = new Set(prev); toDelete.forEach((id) => next.delete(id)); return next })
-      toast.success(`${toDelete.length} receita(s) excluída(s).`)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao excluir.")
+      await Promise.all(ids.map((id) => apiFetch(`/incomes/${id}`, { method: "DELETE", token })))
+      setIncomes((prev) => prev.filter((i) => !ids.includes(i.id)))
+      setSelected((prev) => new Set([...prev].filter((id) => !ids.includes(id))))
+      toast.success(`${ids.length} receita${ids.length !== 1 ? "s" : ""} excluída${ids.length !== 1 ? "s" : ""}.`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao excluir.")
     } finally {
-      setSavingIncomeId(null)
+      setIsBusy(false)
     }
   }
 
-  const visibleMonths = MONTHS.map((month, monthIndex) => {
-    const quarterLabel = getQuarter(monthIndex)
-    const isVisible = incomeQuarter === "all" || (incomeQuarter === "month" && monthIndex === currentMonthIndex) || incomeQuarter === `q${quarterLabel}`
-    return { month, monthIndex, isVisible }
-  }).filter((m) => m.isVisible)
+  async function submitIncome(values: IncomeFormValues, current: ApiIncome | null) {
+    if (!token) throw new Error("Sessão expirada.")
+    const tagId = values.tagId === NONE ? null : values.tagId
+    try {
+      if (current) {
+        const payload = { source: values.source, amount: values.amount, date: values.date, tagId }
+        await apiFetch(`/incomes/${current.id}`, { method: "PUT", token, body: JSON.stringify(payload) })
+        setIncomes((prev) => prev.map((i) => (i.id === current.id ? { ...i, ...payload } : i)))
+        toast.success("Receita atualizada.")
+      } else {
+        const created = await apiFetch<ApiIncome>("/incomes", {
+          method: "POST",
+          token,
+          body: JSON.stringify({ source: values.source, amount: values.amount, date: values.date, ...(tagId ? { tagId } : {}) }),
+        })
+        setIncomes((prev) => [created, ...prev])
+        toast.success("Receita criada.")
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar a receita.")
+      throw err
+    }
+  }
 
-  const totalIncomePeriod = React.useMemo(
-    () => incomeRows.reduce((s, r) => s + toNumber(r.amount), 0),
-    [incomeRows],
-  )
+  const hasNone = !isLoading && !loadError && scopeRows.length === 0
 
   return (
     <PageShell
       title="Receitas"
-      availableYears={availableYears}
-      selectedYear={selectedYear}
-      onYearChange={setSelectedYear}
+      subtitle={`Entradas de ${periodLabel}`}
       headerActions={
-        <Tabs value={incomeQuarter} onValueChange={setIncomeQuarter}>
-          <TabsList className="h-auto flex-wrap gap-y-1">
-            <TabsTrigger value="month">Mês atual</TabsTrigger>
-            <TabsTrigger value="all">Todos</TabsTrigger>
-            <TabsTrigger value="q1">1º tri</TabsTrigger>
-            <TabsTrigger value="q2">2º tri</TabsTrigger>
-            <TabsTrigger value="q3">3º tri</TabsTrigger>
-            <TabsTrigger value="q4">4º tri</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <>
+          <Button variant="outline" onClick={() => setTagsOpen(true)}>
+            <Tag /> Tags
+          </Button>
+          <Button onClick={openCreate}>
+            <Plus /> Nova receita
+          </Button>
+        </>
       }
     >
-      {isLoadingData && <p className="text-sm text-muted-foreground">Carregando...</p>}
+      {isLoading ? (
+        <KpiRowSkeleton count={3} />
+      ) : (
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4">
+          <KpiCard
+            hero
+            label="Total do período"
+            icon={TrendingUp}
+            tone="income"
+            value={formatBRL(stats.total)}
+            delta={delta}
+            footnote={delta ? `vs. ${stats.prevLabel}` : undefined}
+          />
+          <KpiCard
+            label="Lançamentos"
+            icon={Hash}
+            tone="primary"
+            value={String(scopeRows.length)}
+            footnote={scopeRows.length === 1 ? "receita" : "receitas"}
+          />
+          <KpiCard
+            label="Maior receita"
+            icon={Trophy}
+            tone="income"
+            value={formatBRL(stats.biggest ? toNumber(stats.biggest.amount) : 0)}
+            footnote={stats.biggest?.source ?? "—"}
+          />
+        </div>
+      )}
 
-      {/* Total do período */}
-      <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-5 py-3 backdrop-blur-sm">
-        <TrendingUp className="size-4 shrink-0 text-emerald-400" />
-        <span className="text-sm text-muted-foreground">Total receitas no período:</span>
-        <span className="ml-auto text-lg font-bold tabular-nums text-emerald-400">
-          {formatBRL(totalIncomePeriod)}
-        </span>
-        <span className="text-xs text-muted-foreground/60">{incomeRows.length} registro{incomeRows.length !== 1 ? "s" : ""}</span>
-      </div>
+      <Card className="gap-0 overflow-clip py-0" aria-label="Lista de receitas">
+        <div className="grid grid-cols-2 gap-2 p-4 md:flex md:flex-wrap md:items-center md:px-5">
+          <div className="relative col-span-2 md:w-72">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <Input
+              className="h-10 pl-9"
+              placeholder="Buscar fonte ou tag"
+              aria-label="Buscar receitas"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <Select value={tagFilter} onValueChange={setTagFilter}>
+            <SelectTrigger className="h-10 w-full md:w-[170px]" aria-label="Filtrar por tag">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as tags</SelectItem>
+              <SelectItem value={NONE}>Sem tag</SelectItem>
+              {incomeTags.map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div role="group" aria-label="Período da lista" className="inline-flex rounded-lg bg-muted p-[3px]">
+            {(
+              [
+                { v: "month", label: "Mês" },
+                { v: "quarter", label: "Trimestre" },
+                { v: "year", label: "Ano" },
+              ] as const
+            ).map((o) => (
+              <button
+                key={o.v}
+                type="button"
+                aria-pressed={scope === o.v}
+                onClick={() => setScope(o.v)}
+                className={cn(
+                  "h-[34px] flex-1 rounded-md px-3 text-[13px] font-medium text-muted-foreground",
+                  scope === o.v && "bg-card text-foreground shadow-xs",
+                )}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+          <span className="num ml-auto hidden text-[13px] text-muted-foreground md:inline">
+            {filteredRows.length} de {scopeRows.length}
+          </span>
+          <Button variant="outline" size="icon" className="hidden size-10 md:inline-flex" onClick={openCreate} aria-label="Nova receita" title="Nova receita">
+            <Plus />
+          </Button>
+        </div>
 
-      {visibleMonths.map(({ month, monthIndex }) => {
-        const rows = incomeRowsByMonth.get(monthIndex) ?? []
-        const monthIds = rows.map((r) => r.id)
-        const allSelected = rows.length > 0 && monthIds.every((id) => selectedIncomeIds.has(id))
-        const someSelected = monthIds.some((id) => selectedIncomeIds.has(id))
-        const monthKey = `${selectedYearNumber}-${monthIndex}`
+        {filtersActive && (
+          <div className="flex flex-wrap items-center gap-2 px-4 pb-3 md:px-5" aria-label="Filtros ativos">
+            {search.trim() && (
+              <span className="inline-flex h-7 items-center gap-1.5 rounded-full border bg-muted pl-2.5 pr-1 text-xs">
+                <span className="text-muted-foreground">Busca:</span>
+                <span className="font-medium">{search.trim()}</span>
+                <button type="button" onClick={() => setSearch("")} aria-label="Remover filtro Busca" className="grid size-5 place-items-center rounded-full text-muted-foreground hover:bg-background hover:text-foreground">
+                  <X className="size-3" />
+                </button>
+              </span>
+            )}
+            {tagFilter !== "all" && (
+              <span className="inline-flex h-7 items-center gap-1.5 rounded-full border bg-muted pl-2.5 pr-1 text-xs">
+                <span className="text-muted-foreground">Tag:</span>
+                <span className="font-medium">{tagFilter === NONE ? "Sem tag" : tagName(tagFilter)}</span>
+                <button type="button" onClick={() => setTagFilter("all")} aria-label="Remover filtro Tag" className="grid size-5 place-items-center rounded-full text-muted-foreground hover:bg-background hover:text-foreground">
+                  <X className="size-3" />
+                </button>
+              </span>
+            )}
+            <button type="button" onClick={clearFilters} className="text-xs font-medium text-primary hover:underline">
+              Limpar filtros
+            </button>
+          </div>
+        )}
 
-        return (
-          <Card key={month.label} className="mb-4 border-border bg-card backdrop-blur-sm">
-            <CardHeader className="pb-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <CardTitle className="text-sm font-medium">{month.label}</CardTitle>
-                <div className="flex items-center gap-2">
-                  {someSelected && (
-                    <Button size="sm" variant="destructive" onClick={() => handleDeleteIncomeSelected(monthIds)} disabled={savingIncomeId === "delete"}>
-                      {savingIncomeId === "delete" ? "Excluindo..." : "Excluir selecionadas"}
-                    </Button>
-                  )}
-                  <Button size="sm" variant="outline" onClick={() => handleAddIncome(monthIndex)} disabled={savingIncomeId === monthKey}>
-                    {savingIncomeId === monthKey ? "Adicionando..." : "Adicionar"}
-                  </Button>
-                </div>
+        {selectedIds.length > 0 && (
+          <div role="region" aria-label="Ações em massa" className="flex flex-wrap items-center gap-2 border-y bg-primary-soft px-4 py-2.5 md:px-5">
+            <strong className="num text-sm">
+              {selectedIds.length} selecionada{selectedIds.length !== 1 ? "s" : ""}
+            </strong>
+            <span className="flex-1" />
+            <Button size="sm" variant="outline" onClick={() => setPendingDelete(selectedIds)} disabled={isBusy}>
+              <Trash2 /> Excluir
+            </Button>
+            <Button size="icon" variant="ghost" className="size-8" onClick={() => setSelected(new Set())} aria-label="Limpar seleção">
+              <X />
+            </Button>
+          </div>
+        )}
+
+        {isLoading ? (
+          <TableSkeleton rows={6} cols={4} />
+        ) : loadError ? (
+          <div className="px-4 pb-6 md:px-5">
+            <div role="alert" className="flex items-start gap-3 rounded-[10px] border border-expense/40 bg-expense-soft px-3.5 py-3">
+              <AlertCircle className="mt-0.5 size-5 shrink-0 text-expense" aria-hidden />
+              <div className="min-w-0 flex-1 text-[13px]">
+                <strong className="block text-sm font-semibold">Não foi possível carregar as receitas</strong>
+                <span className="text-muted-foreground">{loadError} Seus lançamentos continuam salvos.</span>
               </div>
-            </CardHeader>
-            <CardContent className="px-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="pl-6">
-                        {rows.length > 0 && (
-                          <Checkbox
-                            checked={allSelected ? true : someSelected ? "indeterminate" : false}
-                            onCheckedChange={(checked) => {
-                              setSelectedIncomeIds((prev) => {
-                                const next = new Set(prev)
-                                if (checked) monthIds.forEach((id) => next.add(id))
-                                else monthIds.forEach((id) => next.delete(id))
-                                return next
-                              })
-                            }}
-                          />
-                        )}
-                      </TableHead>
-                      <SortableIncomeHeader column="source" currentSort={sortColumnIncome} sortDirection={sortDirectionIncome} onSort={handleIncomeSort} icon={FileText}>Fonte</SortableIncomeHeader>
-                      <SortableIncomeHeader column="amount" currentSort={sortColumnIncome} sortDirection={sortDirectionIncome} onSort={handleIncomeSort} icon={DollarSign}>Valor</SortableIncomeHeader>
-                      <SortableIncomeHeader column="tagId" currentSort={sortColumnIncome} sortDirection={sortDirectionIncome} onSort={handleIncomeSort} icon={Tag}>Tag</SortableIncomeHeader>
-                      <SortableIncomeHeader column="date" currentSort={sortColumnIncome} sortDirection={sortDirectionIncome} onSort={handleIncomeSort} icon={Calendar}>Data</SortableIncomeHeader>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rows.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} className="px-6 py-6 text-center text-sm text-muted-foreground">
-                          Nenhuma receita neste mês. Clique em "Adicionar" para criar uma.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      rows.map((row) => {
-                        const isEditing = (f: "source" | "amount" | "date" | "tagId") => editingIncomeCell?.id === row.id && editingIncomeCell.field === f
-                        const draft = draftsIncome[row.id]
-                        const sourceValue = (draft?.source ?? row.source) as string
-                        const amountValue = String(draft?.amount ?? row.amount)
-                        const dateValue = formatDateInput((draft?.date ?? row.date) as string)
-                        const tagValue = (draft?.tagId ?? row.tagId) as string | null
-                        const tagLabel = (row.tagId && tagById.get(row.tagId)?.name) || "Sem tag"
+              <Button size="sm" variant="outline" onClick={() => void load()}>
+                <RefreshCw /> Tentar novamente
+              </Button>
+            </div>
+          </div>
+        ) : hasNone ? (
+          <EmptyState
+            className="border-t"
+            icon={Inbox}
+            title={`Nenhuma receita em ${periodLabel}`}
+            description="Registre salário, freelas, rendimentos e outras entradas."
+            action={
+              <Button onClick={openCreate}>
+                <Plus /> Nova receita
+              </Button>
+            }
+          />
+        ) : filteredRows.length === 0 ? (
+          <EmptyState
+            className="border-t"
+            icon={Search}
+            title="Nenhuma receita encontrada"
+            description="Nenhum lançamento corresponde à busca e aos filtros atuais."
+            action={
+              <Button variant="outline" onClick={clearFilters}>
+                Limpar filtros
+              </Button>
+            }
+          />
+        ) : (
+          <div className="border-t">
+            <IncomesTable
+              rows={filteredRows}
+              tagName={tagName}
+              tagIndex={(id) => (id ? (tagIndexById.get(id) ?? 0) : 0)}
+              tagOptions={incomeTags}
+              selected={new Set(selectedIds)}
+              onSelectedChange={setSelected}
+              sort={sort}
+              onSortChange={changeSort}
+              onChangeBasic={(row, patch) => void changeBasic(row, patch)}
+              onChangeTag={(row, id) => void changeTag(row, id)}
+              onEdit={openEdit}
+              onDuplicate={duplicate}
+              onDelete={(row) => setPendingDelete([row.id])}
+              onAdd={openCreate}
+            />
+          </div>
+        )}
+      </Card>
 
-                        return (
-                          <TableRow key={row.id}>
-                            <TableCell className="pl-6">
-                              <Checkbox
-                                checked={selectedIncomeIds.has(row.id)}
-                                onCheckedChange={(checked) => {
-                                  setSelectedIncomeIds((prev) => { const next = new Set(prev); if (checked) next.add(row.id); else next.delete(row.id); return next })
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell onClick={() => startIncomeEdit(row.id, "source")}>
-                              {isEditing("source") ? (
-                                <Input autoFocus value={sourceValue}
-                                  onChange={(e) => setDraftsIncome((p) => ({ ...p, [row.id]: { ...p[row.id], source: e.target.value } }))}
-                                  onBlur={(e) => saveIncomeField(row.id, "source", e.target.value)}
-                                  onKeyDown={(e) => { if (e.key === "Enter") saveIncomeField(row.id, "source", (e.target as HTMLInputElement).value); if (e.key === "Escape") setEditingIncomeCell(null) }}
-                                />
-                              ) : <span className="cursor-text">{row.source}</span>}
-                            </TableCell>
-                            <TableCell onClick={() => startIncomeEdit(row.id, "amount")}>
-                              {isEditing("amount") ? (
-                                <Input autoFocus type="number" step="0.01" value={amountValue}
-                                  onChange={(e) => setDraftsIncome((p) => ({ ...p, [row.id]: { ...p[row.id], amount: e.target.value } }))}
-                                  onBlur={(e) => saveIncomeField(row.id, "amount", e.target.value)}
-                                  onKeyDown={(e) => { if (e.key === "Enter") saveIncomeField(row.id, "amount", (e.target as HTMLInputElement).value); if (e.key === "Escape") setEditingIncomeCell(null) }}
-                                />
-                              ) : <span className="cursor-text">{formatBRL(toNumber(row.amount))}</span>}
-                            </TableCell>
-                            <TableCell onClick={() => startIncomeEdit(row.id, "tagId")}>
-                              {isEditing("tagId") ? (
-                                <Select value={tagValue ?? "none"} onValueChange={(v) => saveIncomeField(row.id, "tagId", v)}>
-                                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="none">Sem tag</SelectItem>
-                                    {incomeTags.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                                  </SelectContent>
-                                </Select>
-                              ) : <span className="cursor-text">{tagLabel}</span>}
-                            </TableCell>
-                            <TableCell>
-                              <DatePickerCell
-                                value={row.date}
-                                isEditing={isEditing("date")}
-                                onStartEdit={() => startIncomeEdit(row.id, "date")}
-                                onSave={(iso) => saveIncomeField(row.id, "date", iso)}
-                                onCancel={() => setEditingIncomeCell(null)}
-                              />
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        )
-      })}
+      <TagsSheet open={tagsOpen} onOpenChange={setTagsOpen} defaultType="INCOME" onTagsChange={setTags} />
+
+      <IncomeSheet open={sheetOpen} onOpenChange={setSheetOpen} income={editing} defaultDate={newIncomeDate()} tags={incomeTags} onSubmit={submitIncome} />
+
+      <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pendingDelete && pendingDelete.length > 1 ? `Excluir ${pendingDelete.length} receitas?` : "Excluir receita?"}</AlertDialogTitle>
+            <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={() => void confirmDelete()}>
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageShell>
   )
 }

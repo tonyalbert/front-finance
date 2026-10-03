@@ -1,0 +1,169 @@
+/* Pit Finance — landing page (usa os tokens de pf.css) */
+.lp { min-height: 100vh; }
+.lp-wrap { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+.lp-nav { position: sticky; top: 0; z-index: 20; background: var(--background); border-bottom: 1px solid var(--border); }
+.lp-nav-in { height: 64px; display: flex; align-items: center; gap: 28px; }
+.lp-links { display: flex; gap: 24px; font-size: 14px; }
+.lp-links a { color: var(--muted-foreground); }
+.lp-links a:hover { color: var(--foreground); text-decoration: none; }
+
+.lp-hero { padding: 88px 0 0; text-align: center; }
+.lp-eyebrow { display: inline-flex; gap: 8px; align-items: center; height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); font-size: 13px; font-weight: 500; box-shadow: var(--shadow-sm); }
+.lp-eyebrow .dot { background: var(--primary); }
+.lp-h1 { font-size: clamp(40px, 6.2vw, 72px); line-height: 1.02; letter-spacing: -0.045em; font-weight: 600; max-width: 940px; margin: 22px auto 0; text-wrap: balance; }
+.lp-h1 em { font-style: normal; color: var(--primary); }
+.lp-sub { font-size: clamp(16px, 1.8vw, 19px); color: var(--muted-foreground); max-width: 640px; margin: 22px auto 0; line-height: 1.55; text-wrap: pretty; }
+.lp-ctas { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 34px; }
+.lp-ctas .btn { height: 48px; padding: 0 22px; font-size: 15px; }
+.lp-note { font-size: 13px; color: var(--muted-foreground); margin-top: 14px; }
+
+.lp-shot { margin: 64px auto 0; max-width: 1120px; border-radius: 18px 18px 0 0; border: 1px solid var(--border); border-bottom: 0; padding: 10px 10px 0; background: var(--muted); }
+.lp-app { border-radius: 10px 10px 0 0; border: 1px solid var(--border); border-bottom: 0; display: flex; overflow: hidden; text-align: left; height: 520px; }
+.lp-app-side { width: 196px; flex: none; background: var(--sidebar); border-right: 1px solid var(--border); padding: 12px; display: flex; flex-direction: column; gap: 2px; }
+.lp-app-side .nav-item { min-height: 32px; font-size: 13px; }
+.lp-app-main { flex: 1; min-width: 0; padding: 20px 22px; display: flex; flex-direction: column; gap: 14px; overflow: hidden; }
+.lp-app .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.lp-app .kpi { padding: 12px 14px; }
+.lp-app .kpi-value { font-size: 19px; }
+.lp-app .kpi.is-hero .kpi-value { font-size: 21px; }
+.lp-app-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 12px; }
+.lp-app .chart-svg { min-width: 0; }
+.lp-app .list-row { padding: 9px 0; min-height: 0; }
+
+.lp-sec { padding: 112px 0; }
+.lp-sec.tight { padding-top: 24px; }
+.lp-kicker { font-size: 13px; font-weight: 600; color: var(--primary); text-transform: uppercase; letter-spacing: .08em; }
+.lp-h2 { font-size: clamp(30px, 4vw, 46px); letter-spacing: -0.035em; line-height: 1.08; font-weight: 600; margin-top: 12px; text-wrap: balance; }
+.lp-lead { font-size: 17px; color: var(--muted-foreground); margin-top: 16px; line-height: 1.55; max-width: 600px; text-wrap: pretty; }
+.lp-head { max-width: 680px; }
+.lp-head.center { margin: 0 auto; text-align: center; }
+.lp-head.center .lp-lead { margin-left: auto; margin-right: auto; }
+
+.lp-feats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 20px; margin-top: 56px; }
+.lp-feat { padding: 28px; display: flex; flex-direction: column; gap: 22px; }
+.lp-feat h3 { font-size: 21px; font-weight: 600; letter-spacing: -0.02em; }
+.lp-feat p { color: var(--muted-foreground); margin-top: 8px; line-height: 1.55; }
+.lp-visual { border: 1px solid var(--border); border-radius: 10px; background: var(--background); padding: 6px 16px; margin-top: auto; }
+.lp-visual.pad { padding: 16px; }
+.lp-ic { width: 40px; height: 40px; border-radius: 10px; background: var(--primary-soft); color: var(--primary); display: grid; place-items: center; }
+.lp-minis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 20px; margin-top: 20px; }
+.lp-mini { padding: 22px; display: flex; flex-direction: column; gap: 10px; }
+.lp-mini h4 { font-size: 16px; font-weight: 600; margin: 0; }
+.lp-mini p { color: var(--muted-foreground); font-size: 14px; line-height: 1.5; }
+
+.lp-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: 0; margin-top: 56px; border-top: 1px solid var(--border); }
+.lp-step { padding: 28px 28px 0 0; display: flex; flex-direction: column; gap: 10px; }
+.lp-step-n { font-family: var(--mono); font-size: 13px; color: var(--primary); font-weight: 500; }
+.lp-step h3 { font-size: 19px; font-weight: 600; letter-spacing: -0.015em; }
+.lp-step p { color: var(--muted-foreground); line-height: 1.55; }
+
+.lp-price { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 460px); gap: 56px; align-items: center; }
+.lp-price-card { padding: 32px; display: flex; flex-direction: column; gap: 22px; box-shadow: var(--shadow-lg); border-color: var(--primary); }
+.lp-amount { display: flex; align-items: baseline; gap: 8px; }
+.lp-amount strong { font-size: 56px; font-weight: 600; letter-spacing: -0.04em; line-height: 1; }
+.lp-amount span { color: var(--muted-foreground); font-size: 16px; }
+.lp-checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.lp-checks li { display: flex; gap: 10px; align-items: flex-start; }
+.lp-checks .ic { color: var(--primary); margin-top: 2px; }
+.lp-timeline { display: flex; flex-direction: column; gap: 0; margin-top: 28px; }
+.lp-tl { display: grid; grid-template-columns: 28px 1fr; gap: 14px; padding-bottom: 22px; position: relative; }
+.lp-tl:not(:last-child)::before { content: ""; position: absolute; left: 13px; top: 28px; bottom: 0; width: 2px; background: var(--border); }
+.lp-tl-dot { width: 28px; height: 28px; border-radius: 999px; background: var(--primary-soft); color: var(--primary); display: grid; place-items: center; }
+.lp-tl strong { display: block; font-weight: 600; }
+.lp-tl span { color: var(--muted-foreground); font-size: 14px; }
+
+.lp-faq { max-width: 760px; margin: 48px auto 0; border-top: 1px solid var(--border); }
+.lp-faq details { border-bottom: 1px solid var(--border); }
+.lp-faq summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 0; font-size: 17px; font-weight: 500; min-height: 44px; }
+.lp-faq summary::-webkit-details-marker { display: none; }
+.lp-faq summary .ic { transition: transform .15s; color: var(--muted-foreground); }
+.lp-faq details[open] summary .ic { transform: rotate(45deg); }
+.lp-faq details p { color: var(--muted-foreground); padding: 0 40px 22px 0; line-height: 1.6; }
+
+.lp-final { border-radius: 20px; padding: 72px 32px; text-align: center; border: 1px solid var(--border); }
+.lp-final .lp-h2 { margin-top: 0; }
+.lp-foot { border-top: 1px solid var(--border); padding: 28px 0 40px; }
+.lp-foot-in { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted-foreground); }
+.lp-foot-in a { color: var(--muted-foreground); }
+
+@media (max-width: 900px) {
+  .lp-links { display: none; }
+  .lp-app-side { display: none; }
+  .lp-app .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lp-app-grid { grid-template-columns: minmax(0, 1fr); }
+  .lp-price { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+}
+@media (max-width: 760px) {
+  .lp-wrap { padding: 0 16px; }
+  .lp-nav-in { gap: 12px; height: 60px; }
+  .lp-nav .hide-sm { display: none; }
+  .lp-hero { padding-top: 48px; }
+  .lp-ctas .btn { width: 100%; }
+  .lp-shot { margin-top: 40px; padding: 6px 6px 0; border-radius: 12px 12px 0 0; }
+  .lp-app { height: 460px; }
+  .lp-app-main { padding: 14px; }
+  .lp-app .lp-hide-sm { display: none; }
+  .lp-sec { padding: 72px 0; }
+  .lp-feat { padding: 20px; }
+  .lp-step { padding-right: 0; }
+  .lp-price-card { padding: 24px; }
+  .lp-amount strong { font-size: 46px; }
+  .lp-final { padding: 48px 20px; border-radius: 16px; }
+  .lp-faq details p { padding-right: 0; }
+}
+
+/* logo (A1) inline */
+.lp-logo { width: 28px; height: 28px; flex: none; display: block; overflow: visible; }
+.lp-logo .f { fill: var(--primary); }
+.lp-logo .sep { fill: var(--primary); stroke: var(--background); stroke-width: 4; }
+.lp-logo .cut { fill: var(--background); }
+.lp-logo.ink .f, .lp-logo.ink .sep { fill: var(--foreground); }
+
+/* hero: o mês em uma linha */
+.lp-hero2 { background: var(--background); color: var(--foreground); padding: 88px 0 72px; border-bottom: 1px solid var(--border); }
+.lp-hero2-top { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 56px; align-items: end; }
+.lp-h1-xl { font-size: clamp(46px, 7.4vw, 100px); text-align: left; margin: 24px 0 0; line-height: 0.96; letter-spacing: -0.05em; max-width: none; }
+.lp-hero2 .lp-sub { margin: 0; text-align: left; max-width: 460px; }
+.lp-hero2 .lp-ctas { justify-content: flex-start; margin-top: 28px; }
+.lp-hero2 .lp-note { text-align: left; }
+.lp-month { margin-top: 64px; border: 1px solid var(--border); border-radius: 20px; background: var(--card); padding: 28px 28px 18px; }
+.lp-month-head { display: flex; justify-content: space-between; gap: 24px; flex-wrap: wrap; align-items: flex-end; }
+.lp-readout { display: flex; flex-direction: column; gap: 6px; min-width: 280px; }
+.lp-saldo { font-size: clamp(36px, 5vw, 60px); font-weight: 600; letter-spacing: -0.045em; line-height: 1; }
+.lp-today { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; max-width: 620px; min-height: 34px; }
+.lp-ev { display: inline-flex; gap: 8px; align-items: center; height: 32px; padding: 0 12px; border-radius: 999px; background: var(--muted); font-size: 13px; }
+.lp-ev b { font-weight: 600; }
+.lp-ev.in b { color: var(--income); } .lp-ev.out b { color: var(--expense); }
+.lp-month-scroll { overflow-x: auto; margin: 16px -8px 0; padding: 0 8px; }
+.lp-month-svg { width: 100%; height: auto; display: block; overflow: visible; }
+.lp-month-svg .g { stroke: var(--chart-grid); stroke-width: 1; }
+.lp-month-svg .ax { fill: var(--muted-foreground); font-size: 13px; font-family: var(--font); text-anchor: middle; }
+.lp-month-svg .ax-y { text-anchor: end; font-size: 12px; }
+.lp-month-svg .lbl { fill: var(--foreground); font-size: 13px; font-weight: 500; font-family: var(--font); }
+.lp-month-svg .area { fill: color-mix(in oklch, var(--primary) 16%, transparent); }
+.lp-month-svg .line-f { fill: none; stroke: var(--input); stroke-width: 2.5; stroke-dasharray: 4 6; stroke-linejoin: round; }
+.lp-month-svg .line-p { fill: none; stroke: var(--primary); stroke-width: 3.5; stroke-linejoin: round; stroke-linecap: round; }
+.lp-month-svg .today { stroke: var(--muted-foreground); stroke-width: 1; stroke-dasharray: 3 4; }
+.lp-month-svg .ev-dot { stroke: var(--card); stroke-width: 2.5; transition: opacity .2s; }
+.lp-month-svg .ev-dot.in { fill: var(--income); } .lp-month-svg .ev-dot.out { fill: var(--expense); }
+.lp-month-svg .ev-dot.is-future { opacity: .3; }
+.lp-month-svg .bun { transition: transform .24s cubic-bezier(.3, 1.45, .6, 1); }
+.lp-month-svg .bun .f { fill: var(--primary); }
+.lp-month-svg .bun .sep { fill: var(--primary); stroke: var(--card); stroke-width: 4; }
+.lp-month-svg .bun .cut { fill: var(--card); }
+.lp-month-svg.is-playing .hop { animation: lp-hop .23s ease-in-out infinite alternate; }
+@keyframes lp-hop { to { transform: translateY(-9px); } }
+@media (prefers-reduced-motion: reduce) { .lp-month-svg .bun { transition: none; } .lp-month-svg.is-playing .hop { animation: none; } }
+.lp-month-ctrl { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
+.lp-range { flex: 1; accent-color: var(--primary); height: 44px; cursor: pointer; margin: 0; }
+@media (max-width: 900px) {
+  .lp-hero2-top { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+}
+@media (max-width: 760px) {
+  .lp-hero2 { padding: 48px 0 48px; }
+  .lp-month { margin-top: 40px; padding: 18px 16px 12px; border-radius: 16px; }
+  .lp-readout { min-width: 0; }
+  .lp-today { justify-content: flex-start; }
+  .lp-month-svg { min-width: 680px; }
+  .lp-hint { display: none; }
+}

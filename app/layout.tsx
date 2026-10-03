@@ -16,8 +16,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Finanças Pessoais",
-  description: "Acompanhamento de finanças pessoais",
+  title: { default: "Pit Finance", template: "%s · Pit Finance" },
+  description: "Receitas, despesas, parcelas e contas fixas em uma tela só.",
+  openGraph: {
+    title: "Pit Finance",
+    description: "Receitas, despesas, parcelas e contas fixas em uma tela só.",
+    siteName: "Pit Finance",
+    type: "website",
+    locale: "pt_BR",
+  },
 };
 
 export default function RootLayout({
@@ -31,7 +38,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <AuthProvider>{children}</AuthProvider>
           <Toaster />
         </ThemeProvider>

@@ -1,133 +1,131 @@
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import {
-  Brain,
-  Building2,
-  LayoutDashboard,
-  LifeBuoy,
-  LogOut,
-  RefreshCw,
-  ShieldCheck,
-  Tag,
-  TrendingDown,
-  TrendingUp,
-  Wallet,
-} from "lucide-react"
+import { LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/hooks/use-auth"
-import { ThemeSettingsModal } from "@/components/theme-settings-modal"
-import { TagsSheet } from "./tags-sheet"
-import { CreditorsSheet } from "./creditors-sheet"
+import { PitLogo } from "@/components/brand/pit-logo"
+import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  adminNav,
+  isActivePath,
+  mainNav,
+  secondaryNav,
+  userInitials,
+  type NavItem,
+} from "./nav-config"
 
-const navItems = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/receitas", icon: TrendingUp, label: "Receitas" },
-  { href: "/despesas", icon: TrendingDown, label: "Despesas" },
-  { href: "/fixed-expenses", icon: RefreshCw, label: "Despesas Fixas" },
-  { href: "/ia", icon: Brain, label: "Análise com IA" },
-  { href: "/chamados", icon: LifeBuoy, label: "Suporte" },
-]
+const itemClass = (active: boolean, collapsed: boolean) =>
+  cn(
+    "flex min-h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-sm font-medium transition-colors",
+    "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+    active && "bg-sidebar-accent text-foreground",
+    collapsed && "justify-center px-0",
+  )
 
-export function AppSidebar() {
+function Item({
+  item,
+  active,
+  collapsed,
+  onClick,
+  href,
+}: {
+  item: Pick<NavItem, "icon" | "label">
+  active?: boolean
+  collapsed: boolean
+  onClick?: () => void
+  href?: string
+}) {
+  const Icon = item.icon
+  const inner = (
+    <>
+      <Icon className={cn("size-4 shrink-0", active && "text-primary")} />
+      {!collapsed && <span className="truncate">{item.label}</span>}
+    </>
+  )
+  const el = href ? (
+    <Link
+      href={href}
+      className={itemClass(!!active, collapsed)}
+      aria-current={active ? "page" : undefined}
+      aria-label={collapsed ? item.label : undefined}
+    >
+      {inner}
+    </Link>
+  ) : (
+    <button
+      type="button"
+      onClick={onClick}
+      className={itemClass(!!active, collapsed)}
+      aria-label={collapsed ? item.label : undefined}
+    >
+      {inner}
+    </button>
+  )
+  if (!collapsed) return el
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{el}</TooltipTrigger>
+      <TooltipContent side="right">{item.label}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+export function AppSidebar({ collapsed }: { collapsed: boolean }) {
   const pathname = usePathname()
   const { user, logout } = useAuth()
-  const [tagsOpen, setTagsOpen] = useState(false)
-  const [creditorsOpen, setCreditorsOpen] = useState(false)
 
   return (
-    <>
-      <div className="flex h-full flex-col border-r border-sidebar-border bg-sidebar backdrop-blur-md">
-        {/* Logo */}
-        <div className="flex h-16 shrink-0 items-center gap-2 border-b border-sidebar-border px-4">
-          <Wallet className="size-5 shrink-0 text-primary" />
-          <span className="text-sm font-bold text-sidebar-foreground">Pit Finance</span>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all",
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/50 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-                )}
-              >
-                <item.icon className={cn("size-4 shrink-0", isActive && "text-primary")} />
-                {item.label}
-                {isActive && (
-                  <span className="ml-auto size-1.5 rounded-full bg-primary" />
-                )}
-              </Link>
-            )
-          })}
-        </nav>
-
-        {/* Admin nav */}
-        {user?.isAdmin && (
-          <div className="shrink-0 border-t border-sidebar-border px-2 py-2">
-            {(() => {
-              const isActive = pathname === "/admin/chamados" || pathname.startsWith("/admin/chamados/")
-              return (
-                <Link
-                  href="/admin/chamados"
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all",
-                    isActive
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                      : "text-sidebar-foreground/50 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground",
-                  )}
-                >
-                  <ShieldCheck className={cn("size-4 shrink-0", isActive && "text-primary")} />
-                  Admin Suporte
-                  {isActive && <span className="ml-auto size-1.5 rounded-full bg-primary" />}
-                </Link>
-              )
-            })()}
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="shrink-0 space-y-0.5 border-t border-sidebar-border px-2 py-3">
-          <button
-            onClick={() => setTagsOpen(true)}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/50 transition-all hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-          >
-            <Tag className="size-4 shrink-0" />
-            Tags
-          </button>
-          <button
-            onClick={() => setCreditorsOpen(true)}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/50 transition-all hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-          >
-            <Building2 className="size-4 shrink-0" />
-            Credores
-          </button>
-
-          <div className="flex items-center gap-2 rounded-lg px-3 py-2">
-            <ThemeSettingsModal />
-            <p className="min-w-0 flex-1 truncate text-xs text-sidebar-foreground/35">{user?.email}</p>
-            <button
-              onClick={logout}
-              title="Sair"
-              className="shrink-0 rounded-md p-1.5 text-sidebar-foreground/30 transition-colors hover:bg-red-500/10 hover:text-red-400"
-            >
-              <LogOut className="size-3.5" />
-            </button>
-          </div>
-        </div>
+    <div className="flex h-full flex-col gap-0.5 border-r border-sidebar-border bg-sidebar p-3">
+      <div className={cn("mb-2 flex h-11 items-center gap-2.5 px-1.5", collapsed && "justify-center px-0")}>
+        <Link href="/dashboard" aria-label="Pit Finance: ir para o Dashboard" className="rounded-md">
+          <PitLogo iconOnly={collapsed} className={collapsed ? "text-2xl" : "text-[15px]"} />
+        </Link>
       </div>
 
-      <TagsSheet open={tagsOpen} onOpenChange={setTagsOpen} />
-      <CreditorsSheet open={creditorsOpen} onOpenChange={setCreditorsOpen} />
-    </>
+      <nav aria-label="Seções" className="flex flex-col gap-0.5">
+        {mainNav.map((i) => (
+          <Item key={i.href} item={i} href={i.href} active={isActivePath(pathname, i.href)} collapsed={collapsed} />
+        ))}
+      </nav>
+
+      {user?.isAdmin && (
+        <>
+          {!collapsed && (
+            <div className="px-2.5 pb-1.5 pt-4 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Administração
+            </div>
+          )}
+          <nav aria-label="Administração" className={cn("flex flex-col gap-0.5", collapsed && "mt-2")}>
+            {adminNav.map((i) => (
+              <Item key={i.href} item={i} href={i.href} active={isActivePath(pathname, i.href)} collapsed={collapsed} />
+            ))}
+          </nav>
+        </>
+      )}
+
+      <div className="mt-auto flex flex-col gap-0.5 border-t border-sidebar-border pt-2">
+        {secondaryNav.map((i) => (
+          <Item key={i.href} item={i} href={i.href} active={isActivePath(pathname, i.href)} collapsed={collapsed} />
+        ))}
+
+        <div className={cn("flex items-center gap-2 px-1.5 pt-2", collapsed && "flex-col px-0")}>
+          <span className="grid size-8 shrink-0 place-items-center rounded-full border bg-muted text-xs font-semibold">
+            {userInitials(user?.email)}
+          </span>
+          {!collapsed && (
+            <span className="min-w-0 flex-1 leading-tight">
+              <span className="block truncate text-[13px] font-medium">{user?.email}</span>
+              <span className="text-xs text-muted-foreground">{user?.isAdmin ? "Administrador" : "Conta"}</span>
+            </span>
+          )}
+          <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={logout} aria-label="Sair da conta" title="Sair">
+            <LogOut className="size-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }

@@ -1,248 +1,156 @@
 "use client"
 
 import * as React from "react"
-import { toast } from "sonner"
-import { CheckCircle2, Edit, Plus, Trash2, X } from "lucide-react"
+import Link from "next/link"
+import { Pencil, Plus, Tag } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
+import { useIsMobile } from "@/hooks/use-mobile"
 import { apiFetch } from "@/lib/api"
+import { cn } from "@/lib/utils"
 import type { ApiTag } from "@/lib/finance-types"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { EmptyState } from "@/components/finance/empty-state"
+import { tagColor } from "@/components/finance/inline-edit"
+import { Skeleton } from "@/components/ui/skeleton"
+import { TagFormSheet } from "@/components/tags/tag-form-sheet"
 
+/**
+ * Atalho para gerenciar tags sem sair da tela (Receitas e Despesas).
+ * A gestão completa, com totais por tag, fica na rota /tags.
+ */
 export function TagsSheet({
   open,
   onOpenChange,
+  defaultType = "EXPENSE",
+  onTagsChange,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  /** Tipo da tag criada pelo botão "Nova tag" (o da tela de origem) */
+  defaultType?: ApiTag["type"]
+  /** Avisa a página para atualizar as tags que ela mostra */
+  onTagsChange?: (tags: ApiTag[]) => void
 }) {
   const { token } = useAuth()
+  const isMobile = useIsMobile()
   const [tags, setTags] = React.useState<ApiTag[]>([])
-  const [newTagName, setNewTagName] = React.useState("")
-  const [newTagType, setNewTagType] = React.useState<"INCOME" | "EXPENSE">("EXPENSE")
-  const [editingTagId, setEditingTagId] = React.useState<string | null>(null)
-  const [editingTagName, setEditingTagName] = React.useState("")
+  const [isLoading, setIsLoading] = React.useState(false)
+  const [formOpen, setFormOpen] = React.useState(false)
+  const [editing, setEditing] = React.useState<ApiTag | null>(null)
 
   React.useEffect(() => {
     if (!open || !token) return
-    apiFetch<ApiTag[]>("/tags", { token }).then(setTags).catch(() => {})
+    let cancelled = false
+    setIsLoading(true)
+    apiFetch<ApiTag[]>("/tags", { token })
+      .then((res) => {
+        if (!cancelled) setTags(res)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [open, token])
 
-  async function handleAddTag() {
-    if (!token || newTagName.trim().length < 2) {
-      toast.error("Nome da tag precisa ter pelo menos 2 caracteres.")
-      return
-    }
-    try {
-      const created = await apiFetch<ApiTag>("/tags", {
-        method: "POST",
-        token,
-        body: JSON.stringify({ name: newTagName.trim(), type: newTagType }),
-      })
-      setTags((prev) => [...prev, created])
-      setNewTagName("")
-      toast.success("Tag criada com sucesso!")
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao criar tag.")
-    }
+  function commit(next: ApiTag[]) {
+    setTags(next)
+    onTagsChange?.(next)
   }
 
-  async function handleDeleteTag(tagId: string) {
-    if (!token) return
-    try {
-      await apiFetch(`/tags/${tagId}`, { method: "DELETE", token })
-      setTags((prev) => prev.filter((t) => t.id !== tagId))
-      toast.success("Tag excluída com sucesso!")
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao excluir tag.")
-    }
-  }
-
-  async function handleUpdateTag() {
-    if (!token || !editingTagId || editingTagName.trim().length < 2) {
-      toast.error("Nome da tag precisa ter pelo menos 2 caracteres.")
-      return
-    }
-    try {
-      await apiFetch(`/tags/${editingTagId}`, {
-        method: "PUT",
-        token,
-        body: JSON.stringify({ name: editingTagName.trim() }),
-      })
-      setTags((prev) =>
-        prev.map((t) =>
-          t.id === editingTagId ? { ...t, name: editingTagName.trim() } : t,
-        ),
-      )
-      setEditingTagId(null)
-      setEditingTagName("")
-      toast.success("Tag atualizada com sucesso!")
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao atualizar tag.")
-    }
-  }
-
-  const incomeTags = tags.filter((t) => t.type === "INCOME")
-  const expenseTags = tags.filter((t) => t.type === "EXPENSE")
+  const groups: { type: ApiTag["type"]; title: string }[] = [
+    { type: "EXPENSE", title: "Despesas" },
+    { type: "INCOME", title: "Receitas" },
+  ]
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full max-w-md overflow-y-auto border-border bg-background text-foreground">
-        <SheetHeader className="px-6">
-          <SheetTitle className="text-foreground">Gerenciar Tags</SheetTitle>
-        </SheetHeader>
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent
+          side={isMobile ? "bottom" : "right"}
+          className={cn("gap-0 p-0", isMobile ? "max-h-[92dvh] rounded-t-2xl" : "w-full sm:max-w-md")}
+        >
+          <SheetHeader className="border-b px-5 py-4 text-left">
+            <SheetTitle className="text-lg">Tags</SheetTitle>
+            <SheetDescription>Toque numa tag para renomear ou excluir.</SheetDescription>
+          </SheetHeader>
 
-        <div className="mt-6 space-y-6 px-6 pb-6">
-          {/* Add new tag */}
-          <div className="flex gap-2">
-            <Input
-              placeholder="Nome da tag..."
-              value={newTagName}
-              onChange={(e) => setNewTagName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault()
-                  handleAddTag()
-                }
+          <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-4">
+            <Button
+              onClick={() => {
+                setEditing(null)
+                setFormOpen(true)
               }}
-              className="border-border bg-accent/30 text-foreground placeholder:text-muted-foreground"
-            />
-            <Select
-              value={newTagType}
-              onValueChange={(v) => setNewTagType(v as "INCOME" | "EXPENSE")}
             >
-              <SelectTrigger className="w-36 shrink-0 border-white/12 bg-white/6 text-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="INCOME">Receita</SelectItem>
-                <SelectItem value="EXPENSE">Despesa</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button onClick={handleAddTag} className="shrink-0">
-              <Plus className="size-4" />
+              <Plus /> Nova tag
             </Button>
-          </div>
 
-          {/* Income tags */}
-          <div>
-            <h3 className="mb-3 text-sm font-semibold text-muted-foreground">Tags de Receita</h3>
-            <div className="flex flex-wrap gap-2">
-              {incomeTags.length === 0 ? (
-                <p className="text-sm text-muted-foreground/60">Nenhuma tag de receita.</p>
-              ) : (
-                incomeTags.map((tag) => (
-                  <div
-                    key={tag.id}
-                    className="group flex items-center gap-2 rounded-full border border-border bg-accent/40 px-3 py-1.5"
-                  >
-                    {editingTagId === tag.id ? (
-                      <>
-                        <Input
-                          className="h-6 w-28 rounded-full border-border bg-accent/30 px-2 text-xs text-foreground"
-                          value={editingTagName}
-                          onChange={(e) => setEditingTagName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleUpdateTag()
-                            if (e.key === "Escape") setEditingTagId(null)
-                          }}
-                          autoFocus
-                        />
-                        <button onClick={handleUpdateTag}>
-                          <CheckCircle2 className="size-3.5 text-white/60 hover:text-white" />
-                        </button>
-                        <button onClick={() => setEditingTagId(null)}>
-                          <X className="size-3.5 text-white/60 hover:text-white" />
-                        </button>
-                      </>
+            {isLoading ? (
+              <div className="space-y-2" role="status" aria-label="Carregando">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+              </div>
+            ) : tags.length === 0 ? (
+              <EmptyState icon={Tag} title="Nenhuma tag ainda" description="Crie tags para organizar seus lançamentos." className="py-8" />
+            ) : (
+              groups.map((g) => {
+                const list = tags.filter((t) => t.type === g.type)
+                return (
+                  <section key={g.type} aria-label={`Tags de ${g.title.toLowerCase()}`}>
+                    <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                      {g.title} <span className="num normal-case">· {list.length}</span>
+                    </h3>
+                    {list.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Nenhuma tag de {g.title.toLowerCase()}.</p>
                     ) : (
-                      <>
-                        <span className="text-xs font-medium text-foreground/80">{tag.name}</span>
-                        <div className="hidden gap-1 group-hover:flex">
-                          <button
-                            onClick={() => {
-                              setEditingTagId(tag.id)
-                              setEditingTagName(tag.name)
-                            }}
-                          >
-                            <Edit className="size-3 text-muted-foreground hover:text-foreground" />
-                          </button>
-                          <button onClick={() => handleDeleteTag(tag.id)}>
-                            <Trash2 className="size-3 text-muted-foreground hover:text-red-400" />
-                          </button>
-                        </div>
-                      </>
+                      <ul className="divide-y rounded-lg border">
+                        {list.map((t) => (
+                          <li key={t.id}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditing(t)
+                                setFormOpen(true)
+                              }}
+                              className="group flex min-h-11 w-full items-center gap-3 px-3 text-left text-sm hover:bg-muted/50"
+                            >
+                              <span
+                                className="size-2.5 shrink-0 rounded-full"
+                                style={{ backgroundColor: tagColor(tags.findIndex((x) => x.id === t.id)) }}
+                                aria-hidden
+                              />
+                              <span className="flex-1 truncate font-medium">{t.name}</span>
+                              <Pencil className="size-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 max-md:opacity-60" aria-hidden />
+                              <span className="sr-only">Editar tag {t.name}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
                     )}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+                  </section>
+                )
+              })
+            )}
 
-          {/* Expense tags */}
-          <div>
-            <h3 className="mb-3 text-sm font-semibold text-muted-foreground">Tags de Despesa</h3>
-            <div className="flex flex-wrap gap-2">
-              {expenseTags.length === 0 ? (
-                <p className="text-sm text-muted-foreground/60">Nenhuma tag de despesa.</p>
-              ) : (
-                expenseTags.map((tag) => (
-                  <div
-                    key={tag.id}
-                    className="group flex items-center gap-2 rounded-full border border-red-500/20 bg-red-500/8 px-3 py-1.5"
-                  >
-                    {editingTagId === tag.id ? (
-                      <>
-                        <Input
-                          className="h-6 w-28 rounded-full border-border bg-accent/30 px-2 text-xs text-foreground"
-                          value={editingTagName}
-                          onChange={(e) => setEditingTagName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") handleUpdateTag()
-                            if (e.key === "Escape") setEditingTagId(null)
-                          }}
-                          autoFocus
-                        />
-                        <button onClick={handleUpdateTag}>
-                          <CheckCircle2 className="size-3.5 text-red-400 hover:text-red-300" />
-                        </button>
-                        <button onClick={() => setEditingTagId(null)}>
-                          <X className="size-3.5 text-red-400 hover:text-red-300" />
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-xs font-medium text-red-300">{tag.name}</span>
-                        <div className="hidden gap-1 group-hover:flex">
-                          <button
-                            onClick={() => {
-                              setEditingTagId(tag.id)
-                              setEditingTagName(tag.name)
-                            }}
-                          >
-                            <Edit className="size-3 text-red-400/60 hover:text-red-300" />
-                          </button>
-                          <button onClick={() => handleDeleteTag(tag.id)}>
-                            <Trash2 className="size-3 text-red-400/60 hover:text-red-400" />
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
+            <Link href="/tags" onClick={() => onOpenChange(false)} className="text-[13px] font-medium text-primary hover:underline">
+              Ver totais por tag →
+            </Link>
           </div>
-        </div>
-      </SheetContent>
-    </Sheet>
+        </SheetContent>
+      </Sheet>
+
+      <TagFormSheet
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        tag={editing}
+        defaultType={defaultType}
+        onSaved={(saved) => commit(editing ? tags.map((t) => (t.id === saved.id ? saved : t)) : [...tags, saved])}
+        onDeleted={(id) => commit(tags.filter((t) => t.id !== id))}
+      />
+    </>
   )
 }

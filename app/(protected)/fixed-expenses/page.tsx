@@ -4,31 +4,30 @@ import * as React from "react"
 import { toast } from "sonner"
 import {
   AlertCircle,
+  CalendarClock,
   CheckCircle2,
   ChevronDown,
-  ChevronUp,
-  Edit2,
+  CirclePause,
+  CircleSlash,
+  MoreHorizontal,
+  Pencil,
+  PauseCircle,
   Plus,
-  Power,
   RefreshCw,
   Trash2,
 } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { useAuth } from "@/hooks/use-auth"
 import { apiFetch } from "@/lib/api"
 import type { ApiCreditor, ApiFixedExpense, ApiTag } from "@/lib/finance-types"
-import { formatBRL, toNumber } from "@/lib/finance-utils"
-import {
-  competenceKey,
-  formatVigency,
-  getStatus,
-  isEligibleInMonth,
-  localToday,
-  type FixedExpenseStatus,
-} from "@/lib/fixed-expense-utils"
+import { MONTHS, formatBRL, toNumber } from "@/lib/finance-utils"
+import { competenceKey, formatVigency, getStatus, isEligibleInMonth, type FixedExpenseStatus } from "@/lib/fixed-expense-utils"
+import { usePeriod } from "@/components/dashboard/period-provider"
 import { PageShell } from "@/components/dashboard/page-shell"
-import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { EmptyState } from "@/components/finance/empty-state"
+import { FixedExpenseSheet, type FixedExpenseFormValues } from "@/components/finance/fixed-expense-sheet"
+import { KpiCard } from "@/components/finance/kpi-card"
+import { KpiRowSkeleton, TableSkeleton } from "@/components/finance/skeletons"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,180 +38,115 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Spinner } from "@/components/ui/spinner"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Switch } from "@/components/ui/switch"
 
-const today = localToday()
-const currentMonth = String(new Date().getMonth() + 1)
-const currentYear = String(new Date().getFullYear())
-const STATUS_LABEL: Record<FixedExpenseStatus, string> = {
-  active: "Ativa",
-  paused: "Pausada",
-  ended: "Encerrada",
-}
+const NONE = "none"
 
-function emptyForm() {
-  return {
-    name: "",
-    amount: "",
-    dayOfMonth: "1",
-    startDate: today,
-    endDate: "",
-    noEndDate: true,
-    tagId: "",
-    creditorId: "",
-  }
+const STATUS: Record<FixedExpenseStatus, { label: string; icon: typeof CheckCircle2; cls: string }> = {
+  active: { label: "Ativa", icon: CheckCircle2, cls: "bg-income-soft text-income" },
+  paused: { label: "Pausada", icon: PauseCircle, cls: "bg-warning-soft text-warning" },
+  ended: { label: "Encerrada", icon: CircleSlash, cls: "bg-muted text-muted-foreground" },
 }
 
 export default function FixedExpensesPage() {
   const { token } = useAuth()
+  const { month, year } = usePeriod()
 
   const [fixedExpenses, setFixedExpenses] = React.useState<ApiFixedExpense[]>([])
   const [tags, setTags] = React.useState<ApiTag[]>([])
   const [creditors, setCreditors] = React.useState<ApiCreditor[]>([])
-  const [isLoading, setIsLoading] = React.useState(false)
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [loadError, setLoadError] = React.useState<string | null>(null)
   const [showInactive, setShowInactive] = React.useState(false)
 
-  // Create / Edit dialog
-  const [isFormOpen, setIsFormOpen] = React.useState(false)
-  const [editingId, setEditingId] = React.useState<string | null>(null)
-  const [isSaving, setIsSaving] = React.useState(false)
-  const [form, setForm] = React.useState(emptyForm())
-
-  // Delete dialog
-  const [pendingDeleteId, setPendingDeleteId] = React.useState<string | null>(null)
+  const [sheetOpen, setSheetOpen] = React.useState(false)
+  const [editing, setEditing] = React.useState<ApiFixedExpense | null>(null)
+  const [pendingDelete, setPendingDelete] = React.useState<ApiFixedExpense | null>(null)
   const [isDeleting, setIsDeleting] = React.useState(false)
-
-  // Toggle active loading
   const [togglingId, setTogglingId] = React.useState<string | null>(null)
 
-  React.useEffect(() => {
+  const load = React.useCallback(async () => {
     if (!token) return
-    let cancelled = false
     setIsLoading(true)
-    Promise.all([
-      apiFetch<ApiFixedExpense[]>("/fixed-expenses", { token }),
-      apiFetch<ApiTag[]>("/tags", { token }),
-      apiFetch<ApiCreditor[]>("/creditors/summary", { token }),
-    ])
-      .then(([fe, t, c]) => {
-        if (cancelled) return
-        setFixedExpenses(fe)
-        setTags(t.filter((tag) => tag.type === "EXPENSE"))
-        setCreditors(c)
-      })
-      .catch((err) => { if (!cancelled) toast.error(err instanceof Error ? err.message : "Erro ao carregar dados.") })
-      .finally(() => { if (!cancelled) setIsLoading(false) })
-    return () => { cancelled = true }
+    setLoadError(null)
+    try {
+      const [fe, t, c] = await Promise.all([
+        apiFetch<ApiFixedExpense[]>("/fixed-expenses", { token }),
+        apiFetch<ApiTag[]>("/tags", { token }),
+        apiFetch<ApiCreditor[]>("/creditors/summary", { token }),
+      ])
+      setFixedExpenses(fe)
+      setTags(t.filter((tag) => tag.type === "EXPENSE"))
+      setCreditors(c)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Erro ao carregar dados.")
+    } finally {
+      setIsLoading(false)
+    }
   }, [token])
 
-  const currentCompetence = competenceKey(currentYear, currentMonth)
-  const active = fixedExpenses.filter((fe) => getStatus(fe, currentCompetence) === "active")
-  const inactive = fixedExpenses.filter((fe) => getStatus(fe, currentCompetence) !== "active")
+  React.useEffect(() => {
+    void load()
+  }, [load])
 
-  // Total mensal: so regras ativas e vigentes no mes corrente.
+  // Competência do período escolhido na topbar
+  const competence = competenceKey(year, month + 1)
+  const active = React.useMemo(() => fixedExpenses.filter((fe) => getStatus(fe, competence) === "active"), [fixedExpenses, competence])
+  const inactive = React.useMemo(() => fixedExpenses.filter((fe) => getStatus(fe, competence) !== "active"), [fixedExpenses, competence])
+
+  // Total mensal: só regras ativas e vigentes no mês do período
   const totalMonthly = React.useMemo(
-    () =>
-      fixedExpenses
-        .filter((fe) => isEligibleInMonth(fe, currentCompetence))
-        .reduce((s, fe) => s + toNumber(fe.amount), 0),
-    [fixedExpenses, currentCompetence],
+    () => fixedExpenses.filter((fe) => isEligibleInMonth(fe, competence)).reduce((s, fe) => s + toNumber(fe.amount), 0),
+    [fixedExpenses, competence],
   )
+  const inactiveTotal = inactive.reduce((s, fe) => s + toNumber(fe.amount), 0)
+  const monthLabel = `${MONTHS[month].label.toLowerCase()} de ${year}`
+
+  const nextMonth = month === 11 ? 0 : month + 1
+  const nextYear = month === 11 ? year + 1 : year
+  const nextCount = fixedExpenses.filter((fe) => isEligibleInMonth(fe, competenceKey(nextYear, nextMonth + 1))).length
 
   function openCreate() {
-    setEditingId(null)
-    setForm(emptyForm())
-    setIsFormOpen(true)
+    setEditing(null)
+    setSheetOpen(true)
   }
-
   function openEdit(fe: ApiFixedExpense) {
-    setEditingId(fe.id)
-    setForm({
-      name: fe.name,
-      amount: String(toNumber(fe.amount)),
-      dayOfMonth: String(fe.dayOfMonth),
-      startDate: fe.startDate.slice(0, 10),
-      endDate: fe.endDate ? fe.endDate.slice(0, 10) : "",
-      noEndDate: !fe.endDate,
-      tagId: fe.tagId ?? "",
-      creditorId: fe.creditorId ?? "",
-    })
-    setIsFormOpen(true)
+    setEditing(fe)
+    setSheetOpen(true)
   }
 
-  function closeForm() {
-    setIsFormOpen(false)
-    setEditingId(null)
-    setForm(emptyForm())
-  }
-
-  async function handleSave() {
-    if (!token) return
-    const name = form.name.trim()
-    const amount = parseFloat(form.amount)
-    const dayOfMonth = parseInt(form.dayOfMonth, 10)
-
-    if (name.length < 2) { toast.error("Nome precisa ter pelo menos 2 caracteres."); return }
-    if (!Number.isFinite(amount) || amount <= 0) { toast.error("Valor precisa ser maior que zero."); return }
-    if (!Number.isInteger(dayOfMonth) || dayOfMonth < 1 || dayOfMonth > 31) { toast.error("Dia do vencimento deve ser entre 1 e 31."); return }
-    if (!form.startDate) { toast.error("Informe a data de início."); return }
-    if (!form.noEndDate) {
-      if (!form.endDate) { toast.error("Informe a data de fim ou marque \"Sem data fim\"."); return }
-      if (form.endDate < form.startDate) { toast.error("A data de fim deve ser igual ou posterior à data de início."); return }
-    }
-
+  async function submit(values: FixedExpenseFormValues, current: ApiFixedExpense | null) {
+    if (!token) throw new Error("Sessão expirada.")
     const body = {
-      name,
-      amount,
-      dayOfMonth,
-      // YYYY-MM-DD como veio do input (sem conversao de fuso); null = sem data fim
-      startDate: form.startDate,
-      endDate: form.noEndDate ? null : form.endDate,
-      tagId: form.tagId || null,
-      creditorId: form.creditorId || null,
+      name: values.name,
+      amount: values.amount,
+      dayOfMonth: values.dayOfMonth,
+      // YYYY-MM-DD sem conversão de fuso; null = sem data fim
+      startDate: values.startDate.slice(0, 10),
+      endDate: values.noEndDate ? null : values.endDate.slice(0, 10),
+      tagId: values.tagId === NONE ? null : values.tagId,
+      creditorId: values.creditorId === NONE ? null : values.creditorId,
     }
-
-    setIsSaving(true)
     try {
-      if (editingId) {
-        const updated = await apiFetch<ApiFixedExpense>(`/fixed-expenses/${editingId}`, {
-          method: "PUT",
-          token,
-          body: JSON.stringify(body),
-        })
-        setFixedExpenses((prev) => prev.map((fe) => fe.id === editingId ? updated : fe))
-        toast.success("Despesa fixa atualizada!")
+      if (current) {
+        const updated = await apiFetch<ApiFixedExpense>(`/fixed-expenses/${current.id}`, { method: "PUT", token, body: JSON.stringify(body) })
+        setFixedExpenses((prev) => prev.map((fe) => (fe.id === current.id ? updated : fe)))
+        toast.success("Despesa fixa atualizada.")
       } else {
-        const created = await apiFetch<ApiFixedExpense>("/fixed-expenses", {
-          method: "POST",
-          token,
-          body: JSON.stringify(body),
-        })
+        const created = await apiFetch<ApiFixedExpense>("/fixed-expenses", { method: "POST", token, body: JSON.stringify(body) })
         setFixedExpenses((prev) => [created, ...prev])
-        toast.success("Despesa fixa criada!")
+        toast.success("Despesa fixa criada.")
       }
-      closeForm()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao salvar.")
-    } finally {
-      setIsSaving(false)
+      throw err
     }
   }
 
-  async function handleToggleActive(fe: ApiFixedExpense) {
+  async function toggleActive(fe: ApiFixedExpense) {
     if (!token) return
     setTogglingId(fe.id)
     try {
@@ -221,23 +155,23 @@ export default function FixedExpensesPage() {
         token,
         body: JSON.stringify({ isActive: !fe.isActive }),
       })
-      setFixedExpenses((prev) => prev.map((f) => f.id === fe.id ? updated : f))
-      toast.success(updated.isActive ? "Despesa reativada!" : "Despesa pausada!")
+      setFixedExpenses((prev) => prev.map((f) => (f.id === fe.id ? updated : f)))
+      toast.success(updated.isActive ? "Despesa reativada." : "Despesa pausada.")
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao alterar status.")
+      toast.error(err instanceof Error ? err.message : "Erro ao alterar o status.")
     } finally {
       setTogglingId(null)
     }
   }
 
-  async function handleDelete() {
-    if (!token || !pendingDeleteId) return
+  async function confirmDelete() {
+    if (!token || !pendingDelete) return
     setIsDeleting(true)
     try {
-      await apiFetch(`/fixed-expenses/${pendingDeleteId}`, { method: "DELETE", token })
-      setFixedExpenses((prev) => prev.filter((fe) => fe.id !== pendingDeleteId))
-      toast.success("Despesa fixa excluída!")
-      setPendingDeleteId(null)
+      await apiFetch(`/fixed-expenses/${pendingDelete.id}`, { method: "DELETE", token })
+      setFixedExpenses((prev) => prev.filter((fe) => fe.id !== pendingDelete.id))
+      toast.success("Despesa fixa excluída.")
+      setPendingDelete(null)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao excluir.")
     } finally {
@@ -245,237 +179,141 @@ export default function FixedExpensesPage() {
     }
   }
 
+  const renderRow = (fe: ApiFixedExpense) => (
+    <FixedExpenseRow
+      key={fe.id}
+      fe={fe}
+      status={getStatus(fe, competence)}
+      isToggling={togglingId === fe.id}
+      onEdit={() => openEdit(fe)}
+      onToggle={() => void toggleActive(fe)}
+      onDelete={() => setPendingDelete(fe)}
+    />
+  )
+
   return (
     <PageShell
-      title="Despesas Fixas"
+      title="Despesas fixas"
+      subtitle="Geradas automaticamente todo mês, no dia do vencimento"
       headerActions={
-        <Button size="sm" onClick={openCreate}>
-          <Plus className="mr-2 size-4" />
-          Nova despesa fixa
+        <Button onClick={openCreate}>
+          <Plus /> Nova despesa fixa
         </Button>
       }
     >
-      <p className="text-sm text-muted-foreground">
-        As despesas fixas aparecem automaticamente nos próximos 12 meses.
-      </p>
-
-      {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
-
-      {/* KPI cards */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
-          <RefreshCw className="size-4 shrink-0 text-primary" />
-          <div>
-            <p className="text-xs text-muted-foreground">Ativas</p>
-            <p className="text-base font-bold tabular-nums">{active.length}</p>
-          </div>
+      {isLoading ? (
+        <KpiRowSkeleton count={3} />
+      ) : (
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4">
+          <KpiCard
+            hero
+            label="Comprometido por mês"
+            icon={RefreshCw}
+            tone="primary"
+            value={formatBRL(totalMonthly)}
+            footnote={`${active.length} ativa${active.length !== 1 ? "s" : ""} em ${monthLabel}`}
+          />
+          <KpiCard
+            label="Próxima geração"
+            icon={CalendarClock}
+            tone="primary"
+            value={`01/${String(nextMonth + 1).padStart(2, "0")}/${nextYear}`}
+            footnote={`${nextCount} despesa${nextCount !== 1 ? "s" : ""} em ${MONTHS[nextMonth].label.toLowerCase()}`}
+          />
+          <KpiCard
+            label="Pausadas ou encerradas"
+            icon={CirclePause}
+            tone="warning"
+            value={String(inactive.length)}
+            footnote={inactive.length > 0 ? `${formatBRL(inactiveTotal)} por mês fora do orçamento` : "Nenhuma"}
+          />
         </div>
-        <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
-          <AlertCircle className="size-4 shrink-0 text-muted-foreground/60" />
-          <div>
-            <p className="text-xs text-muted-foreground">Pausadas / encerradas</p>
-            <p className="text-base font-bold tabular-nums text-muted-foreground">{inactive.length}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
-          <CheckCircle2 className="size-4 shrink-0 text-red-400" />
-          <div>
-            <p className="text-xs text-muted-foreground">Total mensal (vigentes)</p>
-            <p className="text-base font-bold tabular-nums text-red-400">{formatBRL(totalMonthly)}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Active list */}
-      <Card className="border-border bg-card">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium text-muted-foreground">Ativas</CardTitle>
-        </CardHeader>
-        <CardContent className="px-0 pb-2">
-          {active.length === 0 ? (
-            <p className="px-5 py-4 text-sm text-muted-foreground/60">
-              Nenhuma despesa fixa ativa. Clique em &quot;Nova despesa fixa&quot; para criar.
-            </p>
-          ) : (
-            <div className="divide-y divide-border/50">
-              {active.map((fe) => (
-                <FixedExpenseRow
-                  key={fe.id}
-                  fe={fe}
-                  togglingId={togglingId}
-                  onEdit={openEdit}
-                  onToggle={handleToggleActive}
-                  onDelete={(id) => setPendingDeleteId(id)}
-                />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Inactive list */}
-      {inactive.length > 0 && (
-        <Card className="border-border bg-card">
-          <CardHeader className="pb-2">
-            <button
-              className="flex w-full items-center justify-between text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-              onClick={() => setShowInactive((v) => !v)}
-            >
-              <span>Pausadas e encerradas ({inactive.length})</span>
-              {showInactive ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-            </button>
-          </CardHeader>
-          {showInactive && (
-            <CardContent className="px-0 pb-2">
-              <div className="divide-y divide-border/50">
-                {inactive.map((fe) => (
-                  <FixedExpenseRow
-                    key={fe.id}
-                    fe={fe}
-                    togglingId={togglingId}
-                    onEdit={openEdit}
-                    onToggle={handleToggleActive}
-                    onDelete={(id) => setPendingDeleteId(id)}
-                  />
-                ))}
-              </div>
-            </CardContent>
-          )}
-        </Card>
       )}
 
-      {/* Create / Edit dialog */}
-      <Dialog open={isFormOpen} onOpenChange={(open) => { if (!open) closeForm() }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{editingId ? "Editar despesa fixa" : "Nova despesa fixa"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Nome</label>
-              <Input
-                placeholder="Ex: Aluguel"
-                value={form.name}
-                onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">Valor</label>
-                <Input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  placeholder="0,00"
-                  value={form.amount}
-                  onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">Dia do vencimento</label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="31"
-                  placeholder="1"
-                  value={form.dayOfMonth}
-                  onChange={(e) => setForm((p) => ({ ...p, dayOfMonth: e.target.value }))}
-                />
-              </div>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Data de início</label>
-              <Input
-                type="date"
-                value={form.startDate}
-                onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
-                <Checkbox
-                  checked={form.noEndDate}
-                  onCheckedChange={(v) =>
-                    setForm((p) => ({ ...p, noEndDate: v === true, endDate: v === true ? "" : p.endDate }))
-                  }
-                />
-                Sem data fim
-              </label>
-              {!form.noEndDate && (
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">Data de fim</label>
-                  <Input
-                    type="date"
-                    min={form.startDate || undefined}
-                    value={form.endDate}
-                    onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))}
-                  />
-                </div>
-              )}
-            </div>
-            <p className="rounded-md border border-border bg-accent/30 px-3 py-2 text-xs text-muted-foreground">
-              Se você já lançou este mês manualmente, exclua o lançamento manual.
-            </p>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Categoria</label>
-              <Select
-                value={form.tagId || "none"}
-                onValueChange={(v) => setForm((p) => ({ ...p, tagId: v === "none" ? "" : v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sem categoria</SelectItem>
-                  {tags.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Credor (opcional)</label>
-              <Select
-                value={form.creditorId || "none"}
-                onValueChange={(v) => setForm((p) => ({ ...p, creditorId: v === "none" ? "" : v }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um credor" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sem credor</SelectItem>
-                  {creditors.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex justify-end gap-2 pt-1">
-              <Button variant="outline" onClick={closeForm} disabled={isSaving}>
-                Cancelar
-              </Button>
-              <Button onClick={handleSave} disabled={isSaving}>
-                {isSaving ? <Spinner className="mr-2 size-4" /> : null}
-                {isSaving ? "Salvando..." : "Salvar"}
-              </Button>
-            </div>
+      {loadError && !isLoading ? (
+        <div role="alert" className="flex items-start gap-3 rounded-[10px] border border-expense/40 bg-expense-soft px-3.5 py-3">
+          <AlertCircle className="mt-0.5 size-5 shrink-0 text-expense" aria-hidden />
+          <div className="min-w-0 flex-1 text-[13px]">
+            <strong className="block text-sm font-semibold">Não foi possível carregar as despesas fixas</strong>
+            <span className="text-muted-foreground">{loadError}</span>
           </div>
-        </DialogContent>
-      </Dialog>
+          <Button size="sm" variant="outline" onClick={() => void load()}>
+            <RefreshCw /> Tentar novamente
+          </Button>
+        </div>
+      ) : (
+        <>
+          <Card className="gap-0 py-0">
+            <CardHeader className="px-5 pb-0 pt-[18px] max-md:px-4">
+              <CardTitle className="text-[15px] font-semibold tracking-tight">Ativas</CardTitle>
+              <p className="text-[13px] text-muted-foreground">Vigentes em {monthLabel}</p>
+            </CardHeader>
+            <CardContent className="px-5 pb-2 pt-2 max-md:px-4">
+              {isLoading ? (
+                <TableSkeleton rows={4} cols={3} />
+              ) : active.length === 0 ? (
+                <EmptyState
+                  icon={RefreshCw}
+                  title="Nenhuma despesa fixa ativa"
+                  description="Cadastre aluguel, internet, plano de saúde e outras contas que se repetem todo mês."
+                  action={
+                    <Button onClick={openCreate}>
+                      <Plus /> Nova despesa fixa
+                    </Button>
+                  }
+                  className="py-8"
+                />
+              ) : (
+                <ul className="divide-y">{active.map(renderRow)}</ul>
+              )}
+            </CardContent>
+          </Card>
 
-      {/* Delete confirmation */}
-      <AlertDialog open={!!pendingDeleteId} onOpenChange={(open) => { if (!open) setPendingDeleteId(null) }}>
+          {inactive.length > 0 && (
+            <Card className="gap-0 py-0">
+              <button
+                type="button"
+                onClick={() => setShowInactive((v) => !v)}
+                aria-expanded={showInactive}
+                className="flex w-full items-center justify-between px-5 py-4 text-left max-md:px-4"
+              >
+                <span>
+                  <span className="text-[15px] font-semibold tracking-tight">Pausadas e encerradas</span>
+                  <span className="num ml-2 text-[13px] text-muted-foreground">{inactive.length}</span>
+                </span>
+                <ChevronDown className={cn("size-4 text-muted-foreground transition-transform", showInactive && "rotate-180")} aria-hidden />
+              </button>
+              {showInactive && (
+                <CardContent className="border-t px-5 pb-2 pt-2 max-md:px-4">
+                  <ul className="divide-y">{inactive.map(renderRow)}</ul>
+                </CardContent>
+              )}
+            </Card>
+          )}
+        </>
+      )}
+
+      <FixedExpenseSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        fixedExpense={editing}
+        tags={tags}
+        creditors={creditors}
+        onSubmit={submit}
+      />
+
+      <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir despesa fixa?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir “{pendingDelete?.name}”?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação é irreversível. As despesas já geradas em /despesas não serão afetadas.
+              Esta ação é irreversível. As despesas já geradas em Despesas não serão afetadas.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
-              {isDeleting ? "Excluindo..." : "Excluir"}
+            <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" onClick={() => void confirmDelete()} disabled={isDeleting}>
+              {isDeleting ? "Excluindo…" : "Excluir"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -486,86 +324,72 @@ export default function FixedExpensesPage() {
 
 function FixedExpenseRow({
   fe,
-  togglingId,
+  status,
+  isToggling,
   onEdit,
   onToggle,
   onDelete,
 }: {
   fe: ApiFixedExpense
-  togglingId: string | null
-  onEdit: (fe: ApiFixedExpense) => void
-  onToggle: (fe: ApiFixedExpense) => void
-  onDelete: (id: string) => void
+  status: FixedExpenseStatus
+  isToggling: boolean
+  onEdit: () => void
+  onToggle: () => void
+  onDelete: () => void
 }) {
-  const isToggling = togglingId === fe.id
-  const status = getStatus(fe, competenceKey(currentYear, currentMonth))
+  const s = STATUS[status]
+  const Icon = s.icon
   const muted = status !== "active"
 
   return (
-    <div className="group flex items-center gap-3 px-5 py-3 transition-colors hover:bg-accent/20">
-      {/* Status dot */}
-      <div className={`size-2 shrink-0 rounded-full ${status === "active" ? "bg-emerald-400" : status === "paused" ? "bg-orange-400/70" : "bg-muted-foreground/30"}`} />
-
-      {/* Info */}
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className={`text-sm font-medium ${muted ? "text-muted-foreground/60" : "text-foreground/90"}`}>
-            {fe.name}
-          </span>
-          <span className="shrink-0 rounded-full border border-border bg-accent/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-            dia {fe.dayOfMonth}
-          </span>
-          <span className="shrink-0 rounded-full border border-border bg-accent/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-            {STATUS_LABEL[status]}
-          </span>
-          {fe.tag && (
-            <span className="shrink-0 rounded-full border border-border bg-accent/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-              {fe.tag.name}
-            </span>
-          )}
-          {fe.creditor && (
-            <span className="shrink-0 rounded-full border border-border bg-accent/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-              {fe.creditor.name}
-            </span>
-          )}
-        </div>
-        <p className="mt-0.5 text-xs text-muted-foreground/50">
-          {formatVigency(fe)}
-        </p>
-      </div>
-
-      {/* Amount */}
-      <span className={`shrink-0 text-sm font-semibold tabular-nums ${muted ? "text-muted-foreground/50" : "text-foreground"}`}>
-        {formatBRL(toNumber(fe.amount))}
+    <li className="flex min-h-[68px] items-center gap-3 py-3">
+      <span className="flex h-11 w-10 shrink-0 flex-col items-center justify-center rounded-lg border bg-subtle leading-[1.1]">
+        <small className="text-[10px] uppercase tracking-wide text-muted-foreground">dia</small>
+        <b className="num text-[15px]">{String(fe.dayOfMonth).padStart(2, "0")}</b>
       </span>
 
-      {/* Actions */}
-      <div className="flex shrink-0 items-center gap-1 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
-        <button
-          onClick={() => onEdit(fe)}
-          className="rounded p-1 hover:bg-accent"
-          title="Editar"
-        >
-          <Edit2 className="size-3.5 text-muted-foreground hover:text-foreground" />
-        </button>
-        <button
-          onClick={() => onToggle(fe)}
-          disabled={isToggling}
-          className="rounded p-1 hover:bg-accent"
-          title={fe.isActive ? "Pausar" : "Reativar"}
-        >
-          {isToggling
-            ? <Spinner className="size-3.5" />
-            : <Power className={`size-3.5 ${fe.isActive ? "text-muted-foreground hover:text-orange-400" : "text-muted-foreground hover:text-emerald-400"}`} />}
-        </button>
-        <button
-          onClick={() => onDelete(fe.id)}
-          className="rounded p-1 hover:bg-accent"
-          title="Excluir"
-        >
-          <Trash2 className="size-3.5 text-muted-foreground hover:text-red-400" />
-        </button>
+      <div className="min-w-0 flex-1 leading-tight">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <strong className={cn("truncate text-sm font-medium", muted && "text-muted-foreground")}>{fe.name}</strong>
+          <span className={cn("inline-flex h-5 items-center gap-1 rounded-full px-2 text-[11px] font-medium", s.cls)}>
+            <Icon className="size-3" aria-hidden />
+            {s.label}
+          </span>
+        </div>
+        <span className="block truncate text-xs text-muted-foreground">
+          {[fe.tag?.name, fe.creditor?.name].filter(Boolean).join(" · ") || "Sem tag ou credor"}
+        </span>
+        <span className="block truncate text-[11px] text-muted-foreground/80">{formatVigency(fe)}</span>
       </div>
-    </div>
+
+      <div className="flex flex-col items-end leading-tight">
+        <span className={cn("num text-sm font-semibold", muted && "text-muted-foreground")}>{formatBRL(toNumber(fe.amount))}</span>
+        <span className="text-xs text-muted-foreground">mensal</span>
+      </div>
+
+      <Switch
+        checked={fe.isActive}
+        disabled={isToggling}
+        onCheckedChange={onToggle}
+        aria-label={fe.isActive ? `Pausar ${fe.name}` : `Reativar ${fe.name}`}
+      />
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="size-8 max-md:size-11" aria-label={`Ações de ${fe.name}`}>
+            <MoreHorizontal />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuItem onSelect={onEdit}>
+            <Pencil /> Editar
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onSelect={onDelete}>
+            <Trash2 /> Excluir
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </li>
   )
 }

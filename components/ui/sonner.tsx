@@ -10,6 +10,8 @@ import {
 import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 
+// Desktop: topo à direita. Mobile (≤ 760px): sonner usa bottom-center,
+// então o offset sobe os toasts acima da bottom nav (68px).
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme()
 
@@ -17,6 +19,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      position="top-right"
+      mobileOffset={{ bottom: 84, left: 12, right: 12 }}
       icons={{
         success: <CircleCheckIcon className="size-4" />,
         info: <InfoIcon className="size-4" />,

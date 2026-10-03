@@ -17,6 +17,11 @@ const badgeVariants = cva(
         outline:
           "border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
         ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
+        income: "bg-income-soft text-income",
+        expense: "bg-expense-soft text-expense",
+        warning: "bg-warning-soft text-warning",
+        info: "bg-info-soft text-info",
+        soft: "bg-primary-soft text-foreground",
         link: "text-primary underline-offset-4 [a&]:hover:underline",
       },
     },

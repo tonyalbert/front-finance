@@ -1,100 +1,127 @@
 "use client"
 
 import * as React from "react"
+import { redirect } from "next/navigation"
 import { toast } from "sonner"
-import { Brain } from "lucide-react"
+import { AlertCircle, RefreshCw, Sparkles, TrendingDown, TrendingUp, Wallet } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { apiFetch } from "@/lib/api"
 import type { ApiIncome, ApiExpense, ApiTag, ApiCreditor } from "@/lib/finance-types"
-import { MONTHS, toNumber } from "@/lib/finance-utils"
+import { MONTHS, formatBRL, isInMonth, toNumber } from "@/lib/finance-utils"
+import { AI_ENABLED } from "@/components/dashboard/nav-config"
+import { usePeriod } from "@/components/dashboard/period-provider"
 import { PageShell } from "@/components/dashboard/page-shell"
+import { KpiCard } from "@/components/finance/kpi-card"
+import { KpiRowSkeleton } from "@/components/finance/skeletons"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Skeleton } from "@/components/ui/skeleton"
 
-export default function IaPage() {
+/** Texto da IA: parágrafos, listas com "-" ou "*" e **negrito**. */
+function AiText({ text }: { text: string }) {
+  const blocks = text.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean)
+  const inline = (s: string) =>
+    s.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+      part.startsWith("**") && part.endsWith("**") ? <strong key={i}>{part.slice(2, -2)}</strong> : <React.Fragment key={i}>{part}</React.Fragment>,
+    )
+  return (
+    <div className="space-y-3 text-sm leading-relaxed">
+      {blocks.map((block, i) => {
+        const lines = block.split("\n")
+        const isList = lines.every((l) => /^\s*[-*•]\s+/.test(l))
+        if (isList) {
+          return (
+            <ul key={i} className="list-disc space-y-1 pl-5">
+              {lines.map((l, j) => (
+                <li key={j}>{inline(l.replace(/^\s*[-*•]\s+/, ""))}</li>
+              ))}
+            </ul>
+          )
+        }
+        const heading = /^#{1,3}\s+(.*)$/.exec(block)
+        if (heading) return <h3 key={i} className="pt-1 text-sm font-semibold">{inline(heading[1])}</h3>
+        return (
+          <p key={i} className="whitespace-pre-wrap">
+            {inline(block)}
+          </p>
+        )
+      })}
+    </div>
+  )
+}
+
+function IaAnalysis() {
   const { token } = useAuth()
-  const now = React.useMemo(() => new Date(), [])
+  const { month, year } = usePeriod()
 
   const [incomes, setIncomes] = React.useState<ApiIncome[]>([])
   const [expenses, setExpenses] = React.useState<ApiExpense[]>([])
   const [tags, setTags] = React.useState<ApiTag[]>([])
   const [allCreditors, setAllCreditors] = React.useState<ApiCreditor[]>([])
-  const [isLoadingData, setIsLoadingData] = React.useState(false)
+  const [isLoadingData, setIsLoadingData] = React.useState(true)
+  const [loadError, setLoadError] = React.useState<string | null>(null)
 
-  const [aiAnalysis, setAiAnalysis] = React.useState<string>("")
+  const [analysis, setAnalysis] = React.useState<{ text: string; month: number; year: number; count: number } | null>(null)
   const [isLoadingAi, setIsLoadingAi] = React.useState(false)
-  const [aiMonth, setAiMonth] = React.useState<string>(String(now.getMonth() + 1))
-  const [aiYear, setAiYear] = React.useState<string>(String(now.getFullYear()))
+
+  const load = React.useCallback(async () => {
+    if (!token) return
+    setIsLoadingData(true)
+    setLoadError(null)
+    try {
+      const [i, e, t, c] = await Promise.all([
+        apiFetch<ApiIncome[]>("/incomes", { token }),
+        apiFetch<ApiExpense[]>("/expenses", { token }),
+        apiFetch<ApiTag[]>("/tags", { token }),
+        apiFetch<ApiCreditor[]>("/creditors/summary", { token }),
+      ])
+      setIncomes(i)
+      setExpenses(e)
+      setTags(t)
+      setAllCreditors(c)
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Erro ao carregar dados.")
+    } finally {
+      setIsLoadingData(false)
+    }
+  }, [token])
 
   React.useEffect(() => {
-    if (!token) return
-    let cancelled = false
-    setIsLoadingData(true)
-    Promise.all([
-      apiFetch<ApiIncome[]>("/incomes", { token }),
-      apiFetch<ApiExpense[]>("/expenses", { token }),
-      apiFetch<ApiTag[]>("/tags", { token }),
-      apiFetch<ApiCreditor[]>("/creditors/summary", { token }),
-    ])
-      .then(([incomesRes, expensesRes, tagsRes, creditorsRes]) => {
-        if (cancelled) return
-        setIncomes(incomesRes)
-        setExpenses(expensesRes)
-        setTags(tagsRes)
-        setAllCreditors(creditorsRes)
-      })
-      .catch((err) => { if (!cancelled) toast.error(err instanceof Error ? err.message : "Erro ao carregar dados.") })
-      .finally(() => { if (!cancelled) setIsLoadingData(false) })
-    return () => { cancelled = true }
-  }, [token])
+    void load()
+  }, [load])
 
   const tagById = React.useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags])
 
-  const availableYears = React.useMemo(() => {
-    const years = new Set<number>()
-    for (const inc of incomes) years.add(new Date(inc.date).getFullYear())
-    for (const exp of expenses) years.add(new Date(exp.date).getFullYear())
-    const current = now.getFullYear()
-    years.add(current)
-    return Array.from(years).sort((a, b) => b - a)
-  }, [incomes, expenses, now])
+  // O que a IA vai analisar: lançamentos do mês do período
+  const monthIncomes = React.useMemo(() => incomes.filter((i) => isInMonth(i.date, year, month)), [incomes, year, month])
+  const monthExpenses = React.useMemo(() => expenses.filter((e) => isInMonth(e.date, year, month)), [expenses, year, month])
+  const totalIncome = monthIncomes.reduce((s, i) => s + toNumber(i.amount), 0)
+  const totalExpense = monthExpenses.reduce((s, e) => s + toNumber(e.amount), 0)
+  const entries = monthIncomes.length + monthExpenses.length
 
-  async function handleAiAnalysis() {
+  const monthName = MONTHS[month].label
+  // a análise mostrada pode ser de outro mês se o período mudou depois
+  const stale = !!analysis && (analysis.month !== month || analysis.year !== year)
+
+  async function analyze() {
     if (!token) return
     setIsLoadingAi(true)
-    setAiAnalysis("")
+    setAnalysis(null)
     try {
-      const monthNum = Number(aiMonth)
-      const yearNum = Number(aiYear)
-      const monthIncomes = incomes.filter((i) => {
-        const d = new Date(i.date)
-        return d.getMonth() + 1 === monthNum && d.getFullYear() === yearNum
-      })
-      const monthExpenses = expenses.filter((e) => {
-        const d = new Date(e.date)
-        return d.getMonth() + 1 === monthNum && d.getFullYear() === yearNum
-      })
       const monthCreditors = allCreditors
         .map((c) => {
-          const cExpenses = monthExpenses.filter((e) => e.creditorId === c.id)
-          const total = cExpenses.reduce((s, e) => s + toNumber(e.amount), 0)
-          const paid = cExpenses.filter((e) => e.isPaid).reduce((s, e) => s + toNumber(e.amount), 0)
+          const list = monthExpenses.filter((e) => e.creditorId === c.id)
+          const total = list.reduce((s, e) => s + toNumber(e.amount), 0)
+          const paid = list.filter((e) => e.isPaid).reduce((s, e) => s + toNumber(e.amount), 0)
           return { name: c.name, totalAmount: total, paidAmount: paid, unpaidAmount: total - paid }
         })
         .filter((c) => c.totalAmount > 0)
 
       const payload = {
-        month: monthNum,
-        year: yearNum,
-        totalIncome: monthIncomes.reduce((s, i) => s + toNumber(i.amount), 0),
-        totalExpense: monthExpenses.reduce((s, e) => s + toNumber(e.amount), 0),
+        month: month + 1,
+        year,
+        totalIncome,
+        totalExpense,
         incomes: monthIncomes.map((i) => ({
           source: i.source,
           amount: toNumber(i.amount),
@@ -115,89 +142,114 @@ export default function IaPage() {
         token,
         body: JSON.stringify(payload),
       })
-      setAiAnalysis(result)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Erro ao analisar dados.")
+      setAnalysis({ text: result, month, year, count: entries })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao analisar dados.")
     } finally {
       setIsLoadingAi(false)
     }
   }
 
   return (
-    <PageShell title="Análise com IA">
-      {isLoadingData && <p className="text-sm text-white/40">Carregando dados...</p>}
-
-      <div className="max-w-2xl space-y-6">
-        {/* Controls */}
-        <div className="relative overflow-hidden rounded-2xl p-5">
-          <div className="absolute inset-0 rounded-2xl border border-white/8 bg-white/[0.03] backdrop-blur-sm" />
-          <div className="relative z-10">
-            <div className="mb-4 flex items-center gap-2">
-              <Brain className="size-5 text-red-400" />
-              <h2 className="text-sm font-semibold text-white">Selecione o período</h2>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <Select value={aiMonth} onValueChange={setAiMonth}>
-                <SelectTrigger className="w-[140px] border-white/10 bg-white/5 text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MONTHS.map((m, i) => (
-                    <SelectItem key={i + 1} value={String(i + 1)}>{m.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={aiYear} onValueChange={setAiYear}>
-                <SelectTrigger className="w-[100px] border-white/10 bg-white/5 text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableYears.map((y) => (
-                    <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                onClick={handleAiAnalysis}
-                disabled={isLoadingAi || isLoadingData}
-                className="bg-red-500 text-white shadow-lg shadow-red-500/20 hover:bg-red-400"
-              >
-                <Brain className="mr-2 size-4" />
-                {isLoadingAi ? "Analisando..." : "Analisar"}
-              </Button>
-            </div>
-            <p className="mt-3 text-xs text-white/40">
-              A IA analisa suas receitas, despesas e credores do mês selecionado e gera insights personalizados.
-            </p>
+    <PageShell title="Análise com IA" subtitle={`Insights sobre ${monthName.toLowerCase()} de ${year}`}>
+      {loadError && !isLoadingData ? (
+        <div role="alert" className="flex items-start gap-3 rounded-[10px] border border-expense/40 bg-expense-soft px-3.5 py-3">
+          <AlertCircle className="mt-0.5 size-5 shrink-0 text-expense" aria-hidden />
+          <div className="min-w-0 flex-1 text-[13px]">
+            <strong className="block text-sm font-semibold">Não foi possível carregar seus dados</strong>
+            <span className="text-muted-foreground">{loadError}</span>
           </div>
+          <Button size="sm" variant="outline" onClick={() => void load()}>
+            <RefreshCw /> Tentar novamente
+          </Button>
         </div>
-
-        {/* Result */}
-        {(aiAnalysis || isLoadingAi) && (
-          <Card className="border-red-500/15 bg-red-950/20 backdrop-blur-sm">
-            <CardContent className="p-5">
-              {isLoadingAi ? (
-                <div className="flex items-center gap-3">
-                  <Brain className="size-5 animate-pulse text-red-400" />
-                  <p className="text-sm text-white/50">Gerando análise personalizada...</p>
+      ) : (
+        <>
+          <Card className="gap-0 py-0">
+            <CardContent className="flex flex-col gap-4 p-5 max-md:p-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary-soft text-primary" aria-hidden>
+                  <Sparkles className="size-5" />
+                </span>
+                <div>
+                  <h2 className="text-[15px] font-semibold tracking-tight">Analisar {monthName.toLowerCase()}</h2>
+                  <p className="mt-0.5 max-w-xl text-[13px] text-muted-foreground">
+                    A IA lê suas receitas, despesas e credores do mês escolhido na barra superior e gera insights personalizados. Use as
+                    setas do período para analisar outro mês.
+                  </p>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Brain className="size-4 text-red-400" />
-                    <span className="text-xs font-semibold text-red-300">
-                      Análise — {MONTHS[Number(aiMonth) - 1]?.label} {aiYear}
-                    </span>
-                  </div>
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed text-white/80">
-                    {aiAnalysis}
-                  </div>
-                </div>
-              )}
+              </div>
+              <Button size="lg" onClick={() => void analyze()} disabled={isLoadingAi || isLoadingData || entries === 0} className="shrink-0">
+                <Sparkles className={isLoadingAi ? "animate-pulse" : undefined} />
+                {isLoadingAi ? "Analisando…" : "Analisar"}
+              </Button>
             </CardContent>
           </Card>
-        )}
-      </div>
+
+          {isLoadingData ? (
+            <KpiRowSkeleton count={3} />
+          ) : (
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-4">
+              <KpiCard hero label="Saldo do mês" icon={Wallet} tone="primary" value={formatBRL(totalIncome - totalExpense)} valueClassName={totalIncome - totalExpense < 0 ? "text-expense" : undefined} footnote={`${entries} lançamento${entries !== 1 ? "s" : ""} para analisar`} />
+              <KpiCard label="Receitas" icon={TrendingUp} tone="income" value={formatBRL(totalIncome)} footnote={`${monthIncomes.length} lançamento${monthIncomes.length !== 1 ? "s" : ""}`} />
+              <KpiCard label="Despesas" icon={TrendingDown} tone="expense" value={formatBRL(totalExpense)} footnote={`${monthExpenses.length} lançamento${monthExpenses.length !== 1 ? "s" : ""}`} />
+            </div>
+          )}
+
+          {!isLoadingData && entries === 0 && !analysis && !isLoadingAi && (
+            <p className="rounded-xl border bg-muted/50 px-4 py-3 text-center text-sm text-muted-foreground">
+              Não há lançamentos em {monthName.toLowerCase()} de {year}. Escolha outro mês na barra superior para analisar.
+            </p>
+          )}
+
+          {isLoadingAi && (
+            <Card className="gap-0 py-0" aria-busy="true">
+              <CardContent className="space-y-3 p-5 max-md:p-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Sparkles className="size-4 animate-pulse text-primary" aria-hidden />
+                  Gerando análise personalizada…
+                </div>
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-11/12" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-5/6" />
+              </CardContent>
+            </Card>
+          )}
+
+          {analysis && !isLoadingAi && (
+            <Card className="gap-0 py-0">
+              <CardContent className="space-y-4 p-5 max-md:p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="grid size-8 place-items-center rounded-full bg-primary-soft text-primary" aria-hidden>
+                      <Sparkles className="size-4" />
+                    </span>
+                    <strong className="text-sm font-semibold">
+                      Análise de {MONTHS[analysis.month].label.toLowerCase()} de {analysis.year}
+                    </strong>
+                  </div>
+                  {stale && (
+                    <Button size="sm" variant="outline" onClick={() => void analyze()} disabled={entries === 0}>
+                      <RefreshCw /> Analisar {monthName.toLowerCase()}
+                    </Button>
+                  )}
+                </div>
+                <AiText text={analysis.text} />
+                <p className="border-t pt-3 text-xs text-muted-foreground">
+                  Baseado em {analysis.count} lançamento{analysis.count !== 1 ? "s" : ""}. A IA usa apenas os seus dados. É uma estimativa, não uma
+                  recomendação financeira: confira valores importantes antes de decidir.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
     </PageShell>
   )
+}
+
+export default function IaPage() {
+  if (!AI_ENABLED) redirect("/dashboard")
+  return <IaAnalysis />
 }

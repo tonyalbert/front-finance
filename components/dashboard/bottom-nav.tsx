@@ -3,82 +3,93 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Brain, LayoutDashboard, LifeBuoy, LogOut, RefreshCw, ShieldCheck, Tag, TrendingDown, TrendingUp } from "lucide-react"
+import { LayoutDashboard, LogOut, MoreHorizontal, Plus, TrendingDown, TrendingUp } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/hooks/use-auth"
-import { TagsSheet } from "./tags-sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { adminNav, isActivePath, mainNav, secondaryNav } from "./nav-config"
 
-const navItems = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Inicio" },
-  { href: "/receitas", icon: TrendingUp, label: "Receitas" },
-  { href: "/despesas", icon: TrendingDown, label: "Despesas" },
-  { href: "/fixed-expenses", icon: RefreshCw, label: "Fixas" },
-  { href: "/ia", icon: Brain, label: "IA" },
-  { href: "/chamados", icon: LifeBuoy, label: "Suporte" },
-]
+const tabClass = (active: boolean) =>
+  cn(
+    "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-lg text-[11px] font-medium transition-colors",
+    active ? "text-foreground" : "text-muted-foreground",
+  )
+
+const moreLinkClass =
+  "flex min-h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium hover:bg-accent"
 
 export function BottomNav() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
-  const [tagsOpen, setTagsOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+
+  const tab = (href: string, label: string, Icon: typeof LayoutDashboard) => {
+    const active = isActivePath(pathname, href)
+    return (
+      <Link href={href} className={tabClass(active)} aria-current={active ? "page" : undefined}>
+        <Icon className={cn("size-5", active && "text-primary")} />
+        {label}
+      </Link>
+    )
+  }
+
+  const moreItems = [
+    ...mainNav.filter((i) => !["/dashboard", "/despesas", "/receitas"].includes(i.href)),
+    ...secondaryNav,
+    ...(user?.isAdmin ? adminNav : []),
+  ]
+  const moreActive = moreItems.some((i) => isActivePath(pathname, i.href))
 
   return (
     <>
-      <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
-        <div className="border-t border-border bg-background/90 backdrop-blur-md">
-          <div className="flex items-center justify-around px-1 py-1">
-            {navItems.map((item) => {
-              const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg px-1 py-2 transition-all",
-                    isActive ? "text-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  <item.icon className={cn("size-5 shrink-0", isActive && "text-primary")} />
-                  <span className="truncate text-[10px] font-medium">{item.label}</span>
-                </Link>
-              )
-            })}
-            {user?.isAdmin && (
-              <Link
-                href="/admin/chamados"
-                className={cn(
-                  "flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg px-1 py-2 transition-all",
-                  pathname === "/admin/chamados" || pathname.startsWith("/admin/chamados/")
-                    ? "text-foreground"
-                    : "text-muted-foreground",
-                )}
-              >
-                <ShieldCheck className={cn(
-                  "size-5 shrink-0",
-                  (pathname === "/admin/chamados" || pathname.startsWith("/admin/chamados/")) && "text-primary",
-                )} />
-                <span className="truncate text-[10px] font-medium">Admin</span>
-              </Link>
-            )}
-            <button
-              onClick={() => setTagsOpen(true)}
-              className="flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg px-1 py-2 text-muted-foreground transition-all"
-            >
-              <Tag className="size-5 shrink-0" />
-              <span className="truncate text-[10px] font-medium">Tags</span>
-            </button>
-            <button
-              onClick={logout}
-              className="flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg px-1 py-2 text-muted-foreground transition-all hover:text-red-400"
-            >
-              <LogOut className="size-5 shrink-0" />
-              <span className="truncate text-[10px] font-medium">Sair</span>
-            </button>
-          </div>
-        </div>
-      </div>
+      <nav
+        aria-label="Navegação principal"
+        className="fixed inset-x-0 bottom-0 z-30 grid h-[68px] grid-cols-5 items-center border-t bg-card px-1 md:hidden"
+      >
+        {tab("/dashboard", "Início", LayoutDashboard)}
+        {tab("/despesas", "Despesas", TrendingDown)}
+        <Link
+          href="/despesas?nova=1"
+          aria-label="Nova despesa"
+          className="mx-auto grid size-[52px] place-items-center rounded-2xl bg-primary text-primary-foreground shadow-md"
+        >
+          <Plus className="size-6" />
+        </Link>
+        {tab("/receitas", "Receitas", TrendingUp)}
+        <button type="button" onClick={() => setMoreOpen(true)} className={tabClass(moreActive)}>
+          <MoreHorizontal className={cn("size-5", moreActive && "text-primary")} />
+          Mais
+        </button>
+      </nav>
 
-      <TagsSheet open={tagsOpen} onOpenChange={setTagsOpen} />
+      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+        <SheetContent side="bottom" className="rounded-t-2xl pb-6">
+          <SheetHeader>
+            <SheetTitle>Mais</SheetTitle>
+          </SheetHeader>
+          <div className="flex flex-col gap-0.5 px-4">
+            {moreItems.map((i) => (
+              <Link key={i.href} href={i.href} onClick={() => setMoreOpen(false)} className={moreLinkClass}>
+                <i.icon className="size-4 text-muted-foreground" />
+                {i.label}
+              </Link>
+            ))}
+            <div className="mt-2 flex items-center justify-between gap-2 border-t pt-3">
+              <span className="min-w-0 truncate text-xs text-muted-foreground">{user?.email}</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={logout}
+                  aria-label="Sair da conta"
+                  className="grid size-9 place-items-center rounded-lg border hover:bg-accent"
+                >
+                  <LogOut className="size-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   )
 }
