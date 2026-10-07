@@ -197,37 +197,34 @@
   }
 }
 
-/* landing: simulação do mês (coelho pulando sobre a linha de saldo) */
-.lp-month-svg .lp-ax {
-  fill: var(--muted-foreground);
-  font-size: 13px;
-  text-anchor: middle;
+/* landing: previsão do mês na hero (entrada única e discreta) */
+.lp-forecast .lp-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: lp-draw 0.9s cubic-bezier(0.4, 0, 0.2, 1) 0.2s forwards;
 }
-.lp-month-svg .lp-ax-y {
-  text-anchor: end;
-  font-size: 12px;
+.lp-forecast .lp-fade {
+  opacity: 0;
+  animation: lp-fade 0.6s ease-out 0.5s forwards;
 }
-.lp-month-svg .lp-lbl {
-  fill: var(--foreground);
-  font-size: 13px;
-  font-weight: 500;
+.lp-forecast .lp-fade-late {
+  animation-delay: 0.9s;
 }
-.lp-month-svg .lp-bun {
-  transition: transform 0.24s cubic-bezier(0.3, 1.45, 0.6, 1);
-}
-.lp-month-svg.is-playing .lp-hop {
-  animation: lp-hop 0.23s ease-in-out infinite alternate;
-}
-@keyframes lp-hop {
+@keyframes lp-draw {
   to {
-    transform: translateY(-9px);
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes lp-fade {
+  to {
+    opacity: 1;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .lp-month-svg .lp-bun {
-    transition: none;
-  }
-  .lp-month-svg.is-playing .lp-hop {
+  .lp-forecast .lp-draw,
+  .lp-forecast .lp-fade {
     animation: none;
+    opacity: 1;
+    stroke-dashoffset: 0;
   }
 }

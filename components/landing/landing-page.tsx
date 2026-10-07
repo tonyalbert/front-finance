@@ -10,6 +10,7 @@ import {
   Landmark,
   Moon,
   RefreshCw,
+  ShieldCheck,
   Smartphone,
   Tag,
 } from "lucide-react"
@@ -21,7 +22,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { DashboardPreview } from "./dashboard-preview"
-import { MonthSimulation } from "./month-simulation"
+import { HeroForecast } from "./hero-forecast"
 import { OppositeThemeBand } from "./landing-client"
 
 const wrap = "mx-auto w-full max-w-[1200px] px-4 min-[760px]:px-6"
@@ -31,6 +32,13 @@ const kicker = "text-[13px] font-semibold uppercase tracking-[0.08em] text-prima
 const h2 = "mt-3 text-balance text-[clamp(30px,4vw,46px)] font-semibold leading-[1.08] tracking-[-0.035em]"
 const lead = "mt-4 max-w-[600px] text-pretty text-[17px] leading-relaxed text-muted-foreground"
 const ctaBtn = "h-12 px-[22px] text-[15px] max-[760px]:w-full"
+
+const HERO_TRUST = [
+  { icon: CreditCard, text: "Teste sem cadastrar cartão" },
+  { icon: ShieldCheck, text: "Não pede acesso ao seu banco" },
+  { icon: Check, text: "Nada é cobrado automaticamente" },
+  { icon: CalendarClock, text: "Depois, R$ 19,99 por mês" },
+]
 
 const STEPS = [
   { n: "01", title: "Crie sua conta", text: "Só e-mail e senha. Sem cartão de crédito para começar os 7 dias grátis." },
@@ -107,38 +115,43 @@ export function LandingPage() {
       </header>
 
       <main>
-        {/* 2. Hero: faixa sempre escura, com o mês simulado */}
-        <section aria-labelledby="hero-title" className="dark border-b bg-background pb-12 pt-12 text-foreground min-[760px]:pb-[72px] min-[760px]:pt-[88px]">
-          <div className={wrap}>
-            <div className="grid items-end gap-7 min-[900px]:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] min-[900px]:gap-14">
+        {/* 2. Hero: faixa sempre escura, com a previsão do mês */}
+        <section aria-labelledby="hero-title" className="dark border-b bg-background py-14 text-foreground min-[760px]:py-24">
+          <div className={`${wrap} grid items-center gap-12 min-[1024px]:grid-cols-[minmax(0,1fr)_minmax(0,500px)] min-[1024px]:gap-16`}>
+            <div>
               <h1
                 id="hero-title"
-                className="text-[clamp(46px,7.4vw,100px)] font-semibold leading-[0.96] tracking-[-0.05em]"
+                className="text-balance text-[clamp(40px,5.4vw,68px)] font-semibold leading-[1.02] tracking-[-0.04em]"
               >
-                Seu mês inteiro,
-                <br />
-                <em className="not-italic text-primary">um pulo à frente.</em>
+                Saiba hoje como seu mês vai terminar.
               </h1>
-              <div>
-                <p className="max-w-[460px] text-pretty text-[clamp(16px,1.8vw,19px)] leading-relaxed text-muted-foreground">
-                  Veja hoje como vai estar seu saldo no dia 31. O Pit Finance desenha o mês com suas receitas, contas fixas e parcelas, e mostra cada vencimento antes de ele chegar.
-                </p>
-                <div className="mt-7 flex flex-wrap gap-3">
-                  <Button size="lg" className={ctaBtn} asChild>
-                    <Link href="/register">
-                      Criar conta grátis <ArrowRight />
-                    </Link>
-                  </Button>
-                  <Button size="lg" variant="outline" className={ctaBtn} asChild>
-                    <a href="#como-funciona">Ver como funciona</a>
-                  </Button>
-                </div>
-                <p className="mt-3.5 text-[13px] text-muted-foreground">Depois do teste, R$ 19,99 por mês.</p>
+              <p className="mt-5 max-w-[520px] text-pretty text-[clamp(16px,1.6vw,18px)] leading-relaxed text-muted-foreground">
+                O Pit Finance reúne receitas, contas fixas e parcelas e mostra o saldo previsto até o dia 31, com cada vencimento antes de ele chegar.
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Button size="lg" className={ctaBtn} asChild>
+                  <Link href="/register">
+                    Começar 7 dias grátis <ArrowRight />
+                  </Link>
+                </Button>
+                <Button size="lg" variant="outline" className={ctaBtn} asChild>
+                  <a href="#como-funciona">Ver como funciona</a>
+                </Button>
               </div>
+              <ul className="mt-8 grid gap-2.5 text-[14px] text-muted-foreground min-[560px]:grid-cols-2 min-[560px]:gap-x-6">
+                {HERO_TRUST.map(({ icon: Icon, text }) => (
+                  <li key={text} className="flex items-center gap-2.5">
+                    <Icon className="size-4 shrink-0 text-income" aria-hidden />
+                    {text}
+                  </li>
+                ))}
+              </ul>
             </div>
 
-            <MonthSimulation />
-            <p className="mt-3 text-xs text-muted-foreground">Exemplo com lançamentos fictícios de um mês.</p>
+            <div>
+              <HeroForecast />
+              <p className="mt-3 text-center text-xs text-muted-foreground">Exemplo com lançamentos fictícios.</p>
+            </div>
           </div>
         </section>
 
