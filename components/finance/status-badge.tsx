@@ -17,11 +17,14 @@ export function StatusBadge({
   onToggle,
   disabled,
   className,
+  ariaLabel,
 }: {
   status: ExpenseStatus
   onToggle?: () => void
   disabled?: boolean
   className?: string
+  /** Sobrescreve o rótulo acessível padrão (ex.: status de um grupo). */
+  ariaLabel?: string
 }) {
   const { label, icon: Icon, cls } = CONFIG[status]
   const base = cn(
@@ -41,7 +44,7 @@ export function StatusBadge({
       type="button"
       onClick={onToggle}
       disabled={disabled}
-      aria-label={status === "paid" ? "Pago. Marcar como pendente" : `${label}. Marcar como pago`}
+      aria-label={ariaLabel ?? (status === "paid" ? "Pago. Marcar como pendente" : `${label}. Marcar como pago`)}
       className={cn(base, "cursor-pointer hover:border-current disabled:cursor-not-allowed disabled:opacity-60")}
     >
       {content}

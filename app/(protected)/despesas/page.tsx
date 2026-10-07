@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
-import { AlertCircle, Check, CheckCircle2, Clock, Inbox, Plus, RefreshCw, Search, Tag, TrendingDown, Trash2, X } from "lucide-react"
+import { AlertCircle, Check, CheckCircle2, Clock, Inbox, Plus, RefreshCw, Search, Tag, TrendingDown, Trash2, Undo2, X } from "lucide-react"
 import { useAuth } from "@/hooks/use-auth"
 import { apiFetch } from "@/lib/api"
 import type { ApiExpense, ApiTag, ApiCreditor } from "@/lib/finance-types"
@@ -32,6 +32,27 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+
+/** Preferência liga/desliga lembrada entre visitas (sem quebrar se o storage estiver bloqueado). */
+function useStoredFlag(key: string): [boolean, (next: boolean) => void] {
+  const [value, setValue] = React.useState(false)
+  React.useEffect(() => {
+    try {
+      setValue(localStorage.getItem(key) === "1")
+    } catch {}
+  }, [key])
+  const set = React.useCallback(
+    (next: boolean) => {
+      setValue(next)
+      try {
+        localStorage.setItem(key, next ? "1" : "0")
+      } catch {}
+    },
+    [key],
+  )
+  return [value, set]
+}
 
 type PendingDelete =
   | { kind: "rows"; ids: string[]; fixedCount: number }
@@ -78,6 +99,7 @@ function DespesasContent() {
   const [allMonths, setAllMonths] = React.useState(false)
   const [sort, setSort] = React.useState<SortState>({ key: "date", dir: "desc" })
   const [selected, setSelected] = React.useState<Set<string>>(() => new Set())
+  const [groupByCreditor, setGroupByCreditor] = useStoredFlag("pit-finance:expenses-group-by-creditor")
 
   const [sheetOpen, setSheetOpen] = React.useState(false)
   const [tagsOpen, setTagsOpen] = React.useState(false)
@@ -265,21 +287,35 @@ function DespesasContent() {
     }
   }
 
-  async function markSelectedPaid() {
-    if (!token || selectedIds.length === 0) return
+  /** Muda o status de várias despesas de uma vez; só envia as que realmente mudam. */
+  async function setPaidMany(ids: string[], isPaid: boolean): Promise<boolean> {
+    if (!token) return false
+    const changing = ids.filter((id) => expenses.find((e) => e.id === id)?.isPaid !== isPaid)
+    if (changing.length === 0) return true
     setIsBusy(true)
     try {
-      const ids = selectedIds.filter((id) => !expenses.find((e) => e.id === id)?.isPaid)
-      await Promise.all(ids.map((id) => apiFetch(`/expenses/${id}`, { method: "PUT", token, body: JSON.stringify({ isPaid: true }) })))
-      setExpenses((prev) => prev.map((e) => (ids.includes(e.id) ? { ...e, isPaid: true } : e)))
-      setSelected(new Set())
-      refreshCreditors()
-      toast.success(`${ids.length} despesa${ids.length !== 1 ? "s" : ""} marcada${ids.length !== 1 ? "s" : ""} como paga${ids.length !== 1 ? "s" : ""}.`)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao atualizar despesas.")
+      const results = await Promise.allSettled(
+        changing.map((id) => apiFetch(`/expenses/${id}`, { method: "PUT", token, body: JSON.stringify({ isPaid }) }).then(() => id)),
+      )
+      const done = results.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []))
+      setExpenses((prev) => prev.map((e) => (done.includes(e.id) ? { ...e, isPaid } : e)))
+      if (done.length > 0) refreshCreditors()
+      const n = done.length
+      const s = n !== 1 ? "s" : ""
+      if (n === changing.length) {
+        toast.success(`${n} despesa${s} marcada${s} como ${isPaid ? `paga${s}` : `pendente${n !== 1 ? "s" : ""}`}.`)
+        return true
+      }
+      toast.error(`${changing.length - n} de ${changing.length} despesas não foram atualizadas. Tente novamente.`)
+      return false
     } finally {
       setIsBusy(false)
     }
+  }
+
+  async function markSelected(isPaid: boolean) {
+    if (selectedIds.length === 0) return
+    if (await setPaidMany(selectedIds, isPaid)) setSelected(new Set())
   }
 
   async function duplicate(row: ApiExpense) {
@@ -537,6 +573,10 @@ function DespesasContent() {
               ))}
             </SelectContent>
           </Select>
+          <label className="col-span-2 flex h-10 cursor-pointer items-center gap-2 text-[13px] font-medium md:col-span-1">
+            <Switch checked={groupByCreditor} onCheckedChange={setGroupByCreditor} aria-label="Agrupar por credor" />
+            Agrupar por credor
+          </label>
           <span className="num ml-auto hidden text-[13px] text-muted-foreground md:inline">
             {filteredRows.length} de {baseRows.length}
           </span>
@@ -575,8 +615,11 @@ function DespesasContent() {
               {selectedCount} selecionada{selectedCount !== 1 ? "s" : ""}
             </strong>
             <span className="flex-1" />
-            <Button size="sm" variant="outline" onClick={markSelectedPaid} disabled={isBusy}>
+            <Button size="sm" variant="outline" onClick={() => void markSelected(true)} disabled={isBusy}>
               <Check /> Marcar como pago
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => void markSelected(false)} disabled={isBusy}>
+              <Undo2 /> Marcar como pendente
             </Button>
             <Button size="sm" variant="outline" onClick={() => requestDelete(selectedIds)} disabled={isBusy}>
               <Trash2 /> Excluir
@@ -652,6 +695,9 @@ function DespesasContent() {
               onDelete={(row) => requestDelete([row.id])}
               onDeleteGroup={requestDeleteGroup}
               onAdd={openCreate}
+              groupByCreditor={groupByCreditor}
+              onSetPaid={(rows, isPaid) => void setPaidMany(rows.map((r) => r.id), isPaid)}
+              busy={isBusy}
             />
           </div>
         )}

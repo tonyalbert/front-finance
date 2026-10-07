@@ -15,6 +15,7 @@ import { BottomNav } from "./bottom-nav"
 import { CommandPalette } from "./command-palette"
 import { PeriodControl } from "./period-control"
 import { pageTitle, userInitials } from "./nav-config"
+import { BillingBanner } from "@/components/billing/billing-provider"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -77,6 +78,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           </header>
 
+          <BillingBanner />
           <main id="conteudo">{children}</main>
         </div>
 

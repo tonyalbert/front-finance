@@ -1,6 +1,7 @@
 import {
   Brain,
   Building2,
+  CreditCard,
   LayoutDashboard,
   LifeBuoy,
   RefreshCw,
@@ -9,6 +10,7 @@ import {
   Tag,
   TrendingDown,
   TrendingUp,
+  Users,
   type LucideIcon,
 } from "lucide-react"
 
@@ -28,11 +30,13 @@ export const mainNav: NavItem[] = [
 
 export const adminNav: NavItem[] = [
   { href: "/admin/chamados", icon: ShieldCheck, label: "Admin Suporte" },
+  { href: "/admin/usuarios", icon: Users, label: "Admin Usuários" },
 ]
 
 export const secondaryNav: NavItem[] = [
   { href: "/tags", icon: Tag, label: "Tags" },
   { href: "/credores", icon: Building2, label: "Credores" },
+  { href: "/assinatura", icon: CreditCard, label: "Assinatura" },
   { href: "/configuracoes", icon: Settings, label: "Configurações" },
 ]
 

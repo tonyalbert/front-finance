@@ -29,6 +29,10 @@ export async function apiFetch<T>(
   })
 
   if (!response.ok) {
+    // 402 = acesso expirado: o BillingProvider escuta e leva o usuário para /assinatura.
+    if (response.status === 402 && typeof window !== "undefined") {
+      window.dispatchEvent(new Event("pit:billing-required"))
+    }
     let message = "Erro ao comunicar com o servidor."
     try {
       const data = await response.json()
