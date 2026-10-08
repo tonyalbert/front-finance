@@ -328,7 +328,15 @@ export default function MetasPage() {
         </>
       )}
 
-      <GoalSheet open={sheetOpen} onOpenChange={setSheetOpen} goal={editing} draft={draft} onSubmit={submitGoal} />
+      <GoalSheet
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+        goal={editing}
+        draft={draft}
+        fixedBalance={fixedIncomeTotal > 0 ? fixedBalance : null}
+        otherGoalsMonthly={needed - (editing && editing.progress.status !== "completed" ? editing.progress.monthlySuggested : 0)}
+        onSubmit={submitGoal}
+      />
       <MovementDialog goal={moving?.goal ?? null} initialType={moving?.type ?? "DEPOSIT"} onOpenChange={(o) => !o && setMoving(null)} onSubmit={submitMovement} />
 
       <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
