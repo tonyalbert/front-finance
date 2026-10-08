@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import type { ApiIncome } from "@/lib/finance-types"
 import { formatBRL, formatDateDisplay, toNumber } from "@/lib/finance-utils"
 import { PAGE_SIZES, usePageSize } from "@/hooks/use-page-size"
+import { FixedBadge } from "@/components/finance/installment-badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -134,7 +135,10 @@ export function IncomesTable(props: Props) {
                   <Checkbox checked={selected.has(row.id)} onCheckedChange={(c) => toggleOne(row.id, c === true)} aria-label={`Selecionar ${row.source}`} />
                 </td>
                 <td className="h-[54px] px-3 font-medium">
-                  <EditableText value={row.source} label="fonte" onSave={(source) => props.onChangeBasic(row, { source })} />
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <EditableText value={row.source} label="fonte" onSave={(source) => props.onChangeBasic(row, { source })} />
+                    {row.fixedIncomeCompetence && <FixedBadge />}
+                  </div>
                 </td>
                 <td className="px-3">{tagPicker(row)}</td>
                 <td className="px-3">
@@ -181,8 +185,9 @@ export function IncomesTable(props: Props) {
               aria-label={`Selecionar ${row.source}`}
             />
             <div className="min-w-0 flex-1">
-              <div className="font-medium">
+              <div className="flex flex-wrap items-center gap-1.5 font-medium">
                 <EditableText value={row.source} label="fonte" onSave={(source) => props.onChangeBasic(row, { source })} />
+                {row.fixedIncomeCompetence && <FixedBadge />}
               </div>
               <div className="mt-0.5 text-xs text-muted-foreground">
                 <EditableDate

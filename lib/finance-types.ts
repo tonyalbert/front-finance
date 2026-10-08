@@ -4,6 +4,7 @@ export type ApiIncome = {
   amount: unknown
   date: string
   tagId: string | null
+  fixedIncomeCompetence?: string | null
 }
 
 export type ApiExpense = {
@@ -58,6 +59,29 @@ export type ApiFixedExpense = {
   creditorId: string | null
   tag: { id: string; name: string; type: string } | null
   creditor: { id: string; name: string } | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type ApiFixedIncomeAdjustment = {
+  id: string
+  amount: string
+  /** Competência "YYYY-MM" a partir da qual o valor vale. */
+  effectiveFrom: string
+}
+
+export type ApiFixedIncome = {
+  id: string
+  name: string
+  /** Valor desde o início; reajustes em `adjustments`. */
+  amount: string
+  dayOfMonth: number
+  startDate: string
+  endDate: string | null
+  isActive: boolean
+  tagId: string | null
+  tag: { id: string; name: string; type: string } | null
+  adjustments: ApiFixedIncomeAdjustment[]
   createdAt: string
   updatedAt: string
 }

@@ -23,7 +23,7 @@ export const mainNav: NavItem[] = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/receitas", icon: TrendingUp, label: "Receitas" },
   { href: "/despesas", icon: TrendingDown, label: "Despesas" },
-  { href: "/fixed-expenses", icon: RefreshCw, label: "Despesas Fixas" },
+  { href: "/fixed-expenses", icon: RefreshCw, label: "Fixas" },
   ...(AI_ENABLED ? [{ href: "/ia", icon: Brain, label: "Análise com IA" }] : []),
   { href: "/chamados", icon: LifeBuoy, label: "Suporte" },
 ]

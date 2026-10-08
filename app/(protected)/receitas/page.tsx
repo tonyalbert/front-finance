@@ -216,6 +216,9 @@ function ReceitasContent() {
     }
   }
 
+  // Excluir ocorrência de receita fixa pula aquele mês (lápide no back): o diálogo avisa.
+  const fixedDeleteCount = pendingDelete ? incomes.filter((i) => pendingDelete.includes(i.id) && i.fixedIncomeCompetence).length : 0
+
   async function confirmDelete() {
     if (!token || !pendingDelete) return
     const ids = pendingDelete
@@ -470,7 +473,13 @@ function ReceitasContent() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{pendingDelete && pendingDelete.length > 1 ? `Excluir ${pendingDelete.length} receitas?` : "Excluir receita?"}</AlertDialogTitle>
-            <AlertDialogDescription>Esta ação não pode ser desfeita.</AlertDialogDescription>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita.
+              {fixedDeleteCount > 0 &&
+                (fixedDeleteCount === 1 && pendingDelete?.length === 1
+                  ? " Esta receita é gerada por uma receita fixa: este mês será pulado e ela não será recriada."
+                  : ` Entre as selecionadas, ${fixedDeleteCount} ${fixedDeleteCount === 1 ? "é gerada" : "são geradas"} por receitas fixas: esses meses serão pulados e não serão recriados.`)}
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>

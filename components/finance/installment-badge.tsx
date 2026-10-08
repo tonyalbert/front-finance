@@ -25,7 +25,7 @@ export function InstallmentBadge({
   )
 }
 
-/** Badge "Fixa" para despesas geradas por despesa fixa. */
+/** Badge "Fixa" para despesas/receitas geradas por uma regra fixa. */
 export function FixedBadge({ className }: { className?: string }) {
   return (
     <span
