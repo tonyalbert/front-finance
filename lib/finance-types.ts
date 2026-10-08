@@ -111,6 +111,8 @@ export type SavingsGoalStatus = "completed" | "on_track" | "behind" | "overdue"
 export type ApiGoalProgress = {
   saved: number
   remaining: number
+  /** Parcelas de empréstimo ainda não pagas (a caminho da meta). */
+  pendingRepayment: number
   percent: number
   monthsLeft: number
   monthlySuggested: number
@@ -118,6 +120,25 @@ export type ApiGoalProgress = {
   leftThisMonth: number
   plannedMonthly: number
   status: SavingsGoalStatus
+}
+
+/** Empréstimo da própria meta: parcelas são despesas parceladas (installmentGroupId). */
+export type ApiSavingsLoan = {
+  id: string
+  goalId: string
+  principal: string
+  /** % ao mês */
+  monthlyRate: string
+  installments: number
+  installmentAmount: string
+  firstDueDate: string
+  installmentGroupId: string
+  createdAt: string
+  paidCount: number
+  remainingCount: number
+  paidAmount: number
+  pendingAmount: number
+  nextInstallment: { expenseId: string; number: number | null; date: string; amount: number } | null
 }
 
 export type ApiSavingsGoal = {
@@ -128,6 +149,7 @@ export type ApiSavingsGoal = {
   initialAmount: string
   isEmergencyFund: boolean
   movements: ApiSavingsMovement[]
+  loans: ApiSavingsLoan[]
   progress: ApiGoalProgress
   createdAt: string
   updatedAt: string

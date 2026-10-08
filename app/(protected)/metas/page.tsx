@@ -34,6 +34,8 @@ import { KpiRowSkeleton } from "@/components/finance/skeletons"
 import { GOAL_STATUS } from "@/components/metas/goal-status"
 import { GoalSheet, endOfMonthIso, type GoalDraft, type GoalFormValues } from "@/components/metas/goal-sheet"
 import { MovementDialog, type MovementType, type MovementValues } from "@/components/metas/movement-dialog"
+import { LoanSheet, type LoanValues } from "@/components/metas/loan-sheet"
+import { LoansSection } from "@/components/metas/loans-section"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,6 +69,7 @@ export default function MetasPage() {
   const [moving, setMoving] = React.useState<{ goal: ApiSavingsGoal; type: MovementType } | null>(null)
   const [pendingDelete, setPendingDelete] = React.useState<ApiSavingsGoal | null>(null)
   const [isDeleting, setIsDeleting] = React.useState(false)
+  const [loanOpen, setLoanOpen] = React.useState(false)
 
   const load = React.useCallback(async () => {
     if (!token) return
@@ -162,6 +165,40 @@ export default function MetasPage() {
       toast.success("Movimentação excluída.")
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Erro ao excluir.")
+    }
+  }
+
+  async function submitLoan(values: LoanValues) {
+    if (!token) throw new Error("Sessão expirada.")
+    const { goalId, ...body } = values
+    try {
+      replaceGoal(await apiFetch<ApiSavingsGoal>(`/savings-goals/${goalId}/loans`, { method: "POST", token, body: JSON.stringify(body) }))
+      toast.success(`Empréstimo de ${formatBRL(values.amount)} feito. As parcelas já estão em Despesas.`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao pedir o empréstimo.")
+      throw err
+    }
+  }
+
+  /** Pagar parcela = marcar a despesa como paga (igual a Despesas); a meta recebe o valor de volta. */
+  async function payInstallment(expenseId: string) {
+    if (!token) return
+    try {
+      await apiFetch(`/expenses/${expenseId}`, { method: "PUT", token, body: JSON.stringify({ isPaid: true }) })
+      setGoals(await apiFetch<ApiSavingsGoal[]>("/savings-goals", { token }))
+      toast.success("Parcela paga. O valor voltou para a meta.")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao pagar a parcela.")
+    }
+  }
+
+  async function cancelLoan(goalId: string, loanId: string) {
+    if (!token) return
+    try {
+      replaceGoal(await apiFetch<ApiSavingsGoal>(`/savings-goals/${goalId}/loans/${loanId}`, { method: "DELETE", token }))
+      toast.success("Empréstimo cancelado. O valor voltou para a meta e as parcelas saíram de Despesas.")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao cancelar o empréstimo.")
     }
   }
 
@@ -302,6 +339,13 @@ export default function MetasPage() {
                   />
                 ))}
               </div>
+              <LoansSection
+                goals={goals}
+                canBorrow={goals.some((g) => g.progress.saved > 0)}
+                onBorrow={() => setLoanOpen(true)}
+                onPay={(expenseId) => payInstallment(expenseId)}
+                onCancel={(goalId, loanId) => void cancelLoan(goalId, loanId)}
+              />
               {completed.length > 0 && (
                 <section className="flex flex-col gap-3">
                   <h2 className="text-[15px] font-semibold tracking-tight">Concluídas</h2>
@@ -337,6 +381,7 @@ export default function MetasPage() {
         otherGoalsMonthly={needed - (editing && editing.progress.status !== "completed" ? editing.progress.monthlySuggested : 0)}
         onSubmit={submitGoal}
       />
+      <LoanSheet open={loanOpen} onOpenChange={setLoanOpen} goals={goals.filter((g) => g.progress.saved > 0)} onSubmit={submitLoan} />
       <MovementDialog goal={moving?.goal ?? null} initialType={moving?.type ?? "DEPOSIT"} onOpenChange={(o) => !o && setMoving(null)} onSubmit={submitMovement} />
 
       <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
@@ -487,6 +532,11 @@ function GoalCard({
         {p.status === "behind" && (
           <p className="text-xs text-muted-foreground">
             O plano inicial era {formatBRL(p.plannedMonthly)} por mês. Para manter o prazo, a parcela subiu para {formatBRL(p.monthlySuggested)}.
+          </p>
+        )}
+        {p.pendingRepayment > 0 && (
+          <p className="text-xs text-muted-foreground">
+            <b className="num text-foreground">{formatBRL(p.pendingRepayment)}</b> emprestado volta em parcelas e já conta no plano.
           </p>
         )}
         {p.status === "overdue" && <p className="text-xs text-muted-foreground">O prazo passou. Edite a meta para definir um novo prazo e recalcular a parcela.</p>}
