@@ -5,6 +5,7 @@ import { PiggyBank } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { ApiSavingsGoal } from "@/lib/finance-types"
 import { formatBRL, toNumber } from "@/lib/finance-utils"
+import { formatMonthYear } from "@/lib/fixed-expense-utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -61,7 +62,13 @@ export function SavingsGoalsSummary({ goals, isLoading }: { goals: ApiSavingsGoa
                       <span>
                         {formatBRL(g.progress.saved)} de {formatBRL(toNumber(g.targetAmount))}
                       </span>
-                      <span>{g.progress.leftThisMonth > 0 ? `faltam ${formatBRL(g.progress.leftThisMonth)} no mês` : "mês em dia"}</span>
+                      <span>
+                        {g.progress.startsAt
+                          ? `começa em ${formatMonthYear(g.progress.startsAt)}`
+                          : g.progress.leftThisMonth > 0
+                            ? `faltam ${formatBRL(g.progress.leftThisMonth)} no mês`
+                            : "mês em dia"}
+                      </span>
                     </div>
                   </li>
                 )

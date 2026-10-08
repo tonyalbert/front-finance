@@ -115,6 +115,8 @@ export type ApiGoalProgress = {
   pendingRepayment: number
   percent: number
   monthsLeft: number
+  /** Primeiro mês de aporte ("YYYY-MM") quando ainda não chegou; null = plano em andamento. */
+  startsAt: string | null
   monthlySuggested: number
   savedThisMonth: number
   leftThisMonth: number
@@ -148,6 +150,7 @@ export type ApiSavingsGoal = {
   targetDate: string
   initialAmount: string
   isEmergencyFund: boolean
+  startMonth: string | null
   movements: ApiSavingsMovement[]
   loans: ApiSavingsLoan[]
   progress: ApiGoalProgress

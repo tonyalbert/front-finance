@@ -124,6 +124,7 @@ export default function MetasPage() {
       targetAmount: values.targetAmount,
       targetDate: values.targetDate.slice(0, 10),
       initialAmount: values.initialAmount,
+      ...(values.startMonth ? { startMonth: values.startMonth } : {}),
     }
     try {
       if (current) {
@@ -523,8 +524,12 @@ function GoalCard({
               <b className="num text-[15px]">{formatBRL(p.status === "overdue" ? p.remaining : p.monthlySuggested)}</b>
             </div>
             <div className="rounded-lg bg-muted px-3 py-2.5">
-              <span className="block text-muted-foreground">Falta neste mês</span>
-              <b className={cn("num text-[15px]", p.leftThisMonth === 0 && "text-income")}>{p.leftThisMonth === 0 ? "Em dia" : formatBRL(p.leftThisMonth)}</b>
+              <span className="block text-muted-foreground">{p.startsAt ? "Começa em" : "Falta neste mês"}</span>
+              {p.startsAt ? (
+                <b className="num text-[15px]">{formatMonthYear(p.startsAt)}</b>
+              ) : (
+                <b className={cn("num text-[15px]", p.leftThisMonth === 0 && "text-income")}>{p.leftThisMonth === 0 ? "Em dia" : formatBRL(p.leftThisMonth)}</b>
+              )}
             </div>
           </div>
         )}

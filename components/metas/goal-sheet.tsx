@@ -19,7 +19,14 @@ import { Slider } from "@/components/ui/slider"
 import { MoneyInput } from "@/components/finance/money-input"
 
 /** O que a página recebe ao salvar (prazo já convertido em data). */
-export type GoalFormValues = { name: string; targetAmount: number; targetDate: string; initialAmount: number }
+export type GoalFormValues = {
+  name: string
+  targetAmount: number
+  targetDate: string
+  initialAmount: number
+  /** Primeiro mês de aporte ("YYYY-MM"); ausente = não mudou (ou mês atual, ao criar). */
+  startMonth?: string
+}
 
 /** Valores iniciais para criar uma meta (ex.: sugestão de reserva de emergência). */
 export type GoalDraft = Partial<GoalFormValues> & { isEmergencyFund?: boolean }
@@ -59,6 +66,8 @@ const schema = z.object({
   name: z.string().trim().min(2, "Informe o nome (mínimo 2 caracteres)"),
   targetAmount: z.number().positive("Informe um valor maior que zero"),
   months: z.number().int().min(1),
+  /** Começar a guardar só no mês que vem (ex.: já tem dinheiro guardado e o mês já está comprometido). */
+  startNext: z.boolean(),
   initialAmount: z.number().min(0),
 })
 type FormShape = z.infer<typeof schema>
@@ -99,6 +108,7 @@ export function GoalSheet({
         targetAmount: toNumber(goal.targetAmount),
         months: Math.max(1, monthsUntil(today, monthKey(goal.targetDate))),
         initialAmount: toNumber(goal.initialAmount),
+        startNext: !!goal.progress.startsAt,
       })
     } else {
       form.reset({
@@ -111,18 +121,29 @@ export function GoalSheet({
     }
   }, [open, goal, draft, form, today])
 
-  const [targetAmount, months, initialAmount] = useWatch({
+  const [targetAmount, months, initialAmount, startNext] = useWatch({
     control: form.control,
-    name: ["targetAmount", "months", "initialAmount"],
+    name: ["targetAmount", "months", "initialAmount", "startNext"],
   })
   const isSubmitting = form.formState.isSubmitting
   const maxMonths = Math.max(MAX_MONTHS, months || 1)
   const deadlineKey = addMonthsKey(today, (months || 1) - 1)
 
-  // Mesmo cálculo do back: parcela sobre o que faltava no início do mês ÷ meses até o prazo.
-  const savedBefore = goal ? goal.progress.saved - goal.progress.savedThisMonth - toNumber(goal.initialAmount) + (initialAmount || 0) : initialAmount || 0
+  // Mesmo cálculo do back: o que falta ÷ meses de aporte (do mês de início até o prazo).
+  // Começando agora, vale o que faltava no início do mês; começando no mês que vem, o que falta hoje.
+  const canStartNext = (months || 1) > 1
+  const startsNext = startNext && canStartNext
+  const startKey = startsNext ? addMonthsKey(today, 1) : today
+  const planMonths = startsNext ? months - 1 : months
+  const savedBefore = goal
+    ? goal.progress.saved +
+      goal.progress.pendingRepayment -
+      (startsNext ? 0 : goal.progress.savedThisMonth) -
+      toNumber(goal.initialAmount) +
+      (initialAmount || 0)
+    : initialAmount || 0
   const remaining = Math.max(0, (targetAmount || 0) - savedBefore)
-  const perMonth = months > 0 ? Math.ceil((remaining * 100) / months) / 100 : 0
+  const perMonth = planMonths > 0 ? Math.ceil((remaining * 100) / planMonths) / 100 : 0
   const animatedPerMonth = useAnimatedNumber(perMonth)
 
   const totalMonthly = otherGoalsMonthly + perMonth
@@ -134,8 +155,10 @@ export function GoalSheet({
     // Prazo não mexido na edição => mantém a data original (não "puxa" uma meta vencida para o mês atual).
     const keepDeadline = goal && !form.formState.dirtyFields.months
     const targetDate = keepDeadline ? goal.targetDate.slice(0, 10) : endOfMonthIso(addMonthsKey(today, values.months - 1))
+    // Início: ao criar, só manda se for o mês que vem; ao editar, só se a escolha mudou.
+    const startMonth = goal ? (form.formState.dirtyFields.startNext ? startKey : undefined) : startsNext ? startKey : undefined
     try {
-      await onSubmit({ name: values.name, targetAmount: values.targetAmount, targetDate, initialAmount: values.initialAmount }, goal)
+      await onSubmit({ name: values.name, targetAmount: values.targetAmount, targetDate, initialAmount: values.initialAmount, startMonth }, goal)
       onOpenChange(false)
     } catch {
       // o chamador mostra o toast; o formulário continua aberto
@@ -181,7 +204,9 @@ export function GoalSheet({
                     <p className="text-[13px] text-muted-foreground">Guarde por mês</p>
                     <p className="num mt-0.5 text-[34px] font-semibold leading-tight tracking-tight">{formatBRL(animatedPerMonth)}</p>
                     <p className="text-[13px] text-muted-foreground">
-                      {months} {months === 1 ? "mês" : "meses"} · até {formatMonthYear(deadlineKey)}
+                      {planMonths === 1
+                        ? `1 aporte, em ${formatMonthYear(startKey)}`
+                        : `${planMonths} aportes, de ${formatMonthYear(startKey)} a ${formatMonthYear(deadlineKey)}`}
                     </p>
                   </>
                 )}
@@ -292,6 +317,46 @@ export function GoalSheet({
 
               <FormField
                 control={form.control}
+                name="startNext"
+                render={({ field }) => (
+                  <FormItem className="gap-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <FormLabel>Começar a guardar</FormLabel>
+                      <div className="flex rounded-lg bg-muted p-[3px]" role="group" aria-label="Começar a guardar">
+                        {[
+                          { next: false, label: "Este mês" },
+                          { next: true, label: "Mês que vem" },
+                        ].map((o) => {
+                          const active = (o.next ? startsNext : !startsNext)
+                          return (
+                            <button
+                              key={o.label}
+                              type="button"
+                              aria-pressed={active}
+                              disabled={o.next && !canStartNext}
+                              onClick={() => field.onChange(o.next)}
+                              className={cn(
+                                "h-7 rounded-md px-3 text-xs font-medium transition-colors disabled:opacity-50",
+                                active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+                              )}
+                            >
+                              {o.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    {startsNext && (
+                      <p className="text-xs text-muted-foreground">
+                        Neste mês a meta não pede aporte e não fica atrasada. Se guardar algo antes, as parcelas diminuem.
+                      </p>
+                    )}
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
                 name="initialAmount"
                 render={({ field }) => (
                   <FormItem>
@@ -356,5 +421,5 @@ export function endOfMonthIso(key: string): string {
 }
 
 function emptyValues(): FormShape {
-  return { name: "", targetAmount: 5_000, months: 12, initialAmount: 0 }
+  return { name: "", targetAmount: 5_000, months: 12, initialAmount: 0, startNext: false }
 }
