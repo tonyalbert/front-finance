@@ -1,5 +1,6 @@
 import {
   Brain,
+  PiggyBank,
   Building2,
   CreditCard,
   LayoutDashboard,
@@ -24,6 +25,7 @@ export const mainNav: NavItem[] = [
   { href: "/receitas", icon: TrendingUp, label: "Receitas" },
   { href: "/despesas", icon: TrendingDown, label: "Despesas" },
   { href: "/fixed-expenses", icon: RefreshCw, label: "Fixas" },
+  { href: "/metas", icon: PiggyBank, label: "Metas" },
   ...(AI_ENABLED ? [{ href: "/ia", icon: Brain, label: "Análise com IA" }] : []),
   { href: "/chamados", icon: LifeBuoy, label: "Suporte" },
 ]

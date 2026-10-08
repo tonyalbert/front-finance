@@ -7,7 +7,9 @@ import { AlertCircle, CalendarCheck, Plus, TrendingDown, TrendingUp, Wallet, Clo
 import { Bar, BarChart, CartesianGrid, Pie, ReferenceArea, PieChart, XAxis, YAxis, Label as RechartsLabel } from "recharts"
 import { useAuth } from "@/hooks/use-auth"
 import { apiFetch } from "@/lib/api"
-import type { ApiIncome, ApiExpense, ApiTag, ApiCreditor, MonthCardData } from "@/lib/finance-types"
+import type { ApiIncome, ApiExpense, ApiTag, ApiCreditor, ApiSavingsGoal, MonthCardData } from "@/lib/finance-types"
+import { savedInMonth } from "@/lib/savings-utils"
+import { competenceKey } from "@/lib/fixed-expense-utils"
 import {
   MONTHS,
   spendConfig,
@@ -26,6 +28,7 @@ import { PageShell } from "@/components/dashboard/page-shell"
 import { MonthCard } from "@/components/dashboard/month-card"
 import { CreditorsSection } from "@/components/dashboard/creditors-section"
 import { FixedExpensesSummary } from "@/components/dashboard/fixed-expenses-summary"
+import { SavingsGoalsSummary } from "@/components/dashboard/savings-goals-summary"
 import { InstallmentsSection } from "@/components/dashboard/installments-section"
 import { KpiCard, type KpiDelta } from "@/components/finance/kpi-card"
 import { StatusBadge } from "@/components/finance/status-badge"
@@ -223,6 +226,7 @@ export default function DashboardPage() {
   const [incomes, setIncomes] = React.useState<ApiIncome[]>([])
   const [expenses, setExpenses] = React.useState<ApiExpense[]>([])
   const [allCreditors, setAllCreditors] = React.useState<ApiCreditor[]>([])
+  const [goals, setGoals] = React.useState<ApiSavingsGoal[]>([])
   const [isLoadingData, setIsLoadingData] = React.useState(true)
   const [payingId, setPayingId] = React.useState<string | null>(null)
 
@@ -235,9 +239,12 @@ export default function DashboardPage() {
       apiFetch<ApiIncome[]>("/incomes", { token }),
       apiFetch<ApiExpense[]>("/expenses", { token }),
       apiFetch<ApiCreditor[]>("/creditors/summary", { token }),
+      // Metas sao opcionais no dashboard: falha nelas nao derruba o resto.
+      apiFetch<ApiSavingsGoal[]>("/savings-goals", { token }).catch(() => [] as ApiSavingsGoal[]),
     ])
-      .then(([t, i, e, c]) => {
+      .then(([t, i, e, c, g]) => {
         if (!cancelled) {
+          setGoals(g)
           setTags(t)
           setIncomes(i)
           setExpenses(e)
@@ -316,18 +323,21 @@ export default function DashboardPage() {
         .reduce((s, x) => s + toNumber(x.amount), 0)
     const income = sum(incomes, selectedYearNumber, selectedMonthIndex)
     const expense = sum(expenses, selectedYearNumber, selectedMonthIndex)
+    // Guardado nas metas NAO e despesa: sai do saldo como categoria propria.
+    const saved = savedInMonth(goals, competenceKey(selectedYearNumber, selectedMonthIndex + 1))
     const pending = expenses.filter((e) => !e.isPaid && inPeriod(e.date))
     return {
       income,
       expense,
-      balance: income - expense,
+      saved,
+      balance: income - expense - saved,
       pendingTotal: pending.reduce((s, e) => s + toNumber(e.amount), 0),
       pendingCount: pending.length,
       incomeDelta: pctDelta(income, sum(incomes, prevYear, prevMonth)),
       expenseDelta: pctDelta(expense, sum(expenses, prevYear, prevMonth)),
       prevLabel: MONTHS[prevMonth].label.toLowerCase(),
     }
-  }, [incomes, expenses, selectedYearNumber, selectedMonthIndex, inPeriod])
+  }, [incomes, expenses, goals, selectedYearNumber, selectedMonthIndex, inPeriod])
 
   const { incomesData, incomesConfig, totalIncome, incomeCount } = React.useMemo(() => {
     const totals = new Map<string, number>()
@@ -440,12 +450,12 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-[repeat(auto-fit,minmax(min(220px,100%),1fr))] sm:gap-4">
           <KpiCard
             hero
-            label="Saldo do período"
+            label={kpiData.saved !== 0 ? "Livre no período" : "Saldo do período"}
             icon={Wallet}
             tone="primary"
             value={formatBRL(kpiData.balance)}
             valueClassName={kpiData.balance < 0 ? "text-expense" : undefined}
-            footnote={monthName}
+            footnote={kpiData.saved !== 0 ? `${monthName} · ${formatBRL(kpiData.saved)} guardado em metas` : monthName}
           />
           <KpiCard
             label="Receitas"
@@ -603,6 +613,7 @@ export default function DashboardPage() {
       {/* Fixas (mês) | Próximas contas (mês) | Maiores despesas (mês) */}
       <div className="grid grid-cols-[repeat(auto-fit,minmax(min(320px,100%),1fr))] gap-4">
         <FixedExpensesSummary month={String(selectedMonthIndex + 1)} year={String(selectedYearNumber)} />
+        <SavingsGoalsSummary goals={goals} isLoading={isLoadingData} />
 
         <SectionCard
           title="Próximas contas"

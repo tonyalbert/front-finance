@@ -96,3 +96,39 @@ export type MonthCardData = {
   dotColor: string
   isCurrentMonth?: boolean
 }
+
+export type ApiSavingsMovement = {
+  id: string
+  type: "DEPOSIT" | "WITHDRAW"
+  amount: string
+  date: string
+  createdAt: string
+}
+
+export type SavingsGoalStatus = "completed" | "on_track" | "behind" | "overdue"
+
+/** Calculado no back (mês corrente em APP_TIMEZONE). Valores em reais. */
+export type ApiGoalProgress = {
+  saved: number
+  remaining: number
+  percent: number
+  monthsLeft: number
+  monthlySuggested: number
+  savedThisMonth: number
+  leftThisMonth: number
+  plannedMonthly: number
+  status: SavingsGoalStatus
+}
+
+export type ApiSavingsGoal = {
+  id: string
+  name: string
+  targetAmount: string
+  targetDate: string
+  initialAmount: string
+  isEmergencyFund: boolean
+  movements: ApiSavingsMovement[]
+  progress: ApiGoalProgress
+  createdAt: string
+  updatedAt: string
+}
